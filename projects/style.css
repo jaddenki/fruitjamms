@@ -1,0 +1,177 @@
+:root {
+  --main: #8951aa;
+  --main2:#101f61;
+}
+p {
+  margin-top: 0; 
+  color:var(--main2);
+  font-size: 18px;
+  line-height: 1.4;
+  width: 100%;
+  max-width: 600px;
+}
+
+
+body {
+  background-color: rgb(255, 255, 255);
+  font-family: Helvetica, sans-serif;
+  margin: 0;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: left;
+  overflow-x: hidden; 
+  overflow-y: auto; 
+  max-height: 100vh; 
+}
+
+/* font default */
+h2, h3, h4, h5, h6 {
+  color: var(--main2);
+  line-height: 1.6;
+}
+h2, h3 {
+  font-weight: bold; 
+  margin-top: 60px;
+}
+
+h3 {
+  padding-top: 30px;
+  font-size: 30px;
+}
+
+
+/* links */
+a {
+  text-decoration: none;
+  color:var(--main);
+}
+
+nav a.active {
+  text-decoration:underline;
+}
+
+nav a {
+  font-size: 26px;
+  color: var(--main);
+  text-decoration: none;
+  font-weight: normal;
+  position: relative;
+  left: -20%;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: -10px;
+  color: var(--main);
+  position: relative;
+}
+
+h1 {
+  font-size: 32px;
+  font-weight: bold;
+  margin: 0;
+  flex-grow: 1
+}
+
+hr {
+  width: 100%;
+  border: 1px solid var(--main);
+  margin: 0;
+}
+
+.intro {
+  margin-top: -10px;
+  margin-left: 5px;
+  width: 100%;
+}
+
+.center-image {
+  position: absolute; 
+  top: 50%;
+  left: 50%; 
+  transform: translate(-50%, -50%);
+  z-index: 10; 
+}
+
+#oscillating-image {
+  max-width: 400px; 
+  height: auto;
+}
+
+/* specific project */
+.project-details {
+  margin-top:-20px;
+  text-align: center;
+}
+
+.project-details p, .project-details h3 {
+  text-align: left;
+  max-width: 700px; 
+  margin: 0 auto; 
+  word-wrap: break-word; 
+  padding-top:10px;
+}
+
+.project-details p {
+  padding-bottom: 10px;
+}
+
+.project-details h3 {
+  padding-top: 20px;
+}
+.project-details h1{
+  padding-top:20px;
+  font-size: 24px;
+  color: var(--main);
+}
+
+/* center text */
+.center-text {
+  text-align: center;
+}
+
+p.center-text {
+  text-align: center;
+  color: var(--main);
+  font-size: 18px;
+  margin-bottom: 20px;
+}
+
+h3.center-text {
+  font-size: 30px;
+  padding-top: 30px;
+}
+p.highlight {
+  color: var(--main);
+}
+
+.scaled-image {
+  width:100%;
+  max-width: 600px; 
+  height: auto; 
+}
+
+
+
+
+@keyframes typing {
+  from { width: 0 }
+  to { width: 100% }
+}
+
+#typing-text {
+  font-size: 18px;
+  color: var(--main2);
+  padding-left:15px;
+  animation: typing 4s steps(60, end);
+}
+
+

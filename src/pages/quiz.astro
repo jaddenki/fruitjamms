@@ -1,0 +1,65 @@
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/png" href="/img/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <title>STL</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      html, body {
+        height: 100%;
+        overflow: hidden;
+        position: fixed;
+        width: 100%;
+      }
+      
+      .frame-wrap { 
+        position: fixed; 
+        top: 0;
+        left: 0;
+        width: 100vw; 
+        height: 100vh; 
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #000;
+      }
+      
+      iframe {
+        width: 100vw; 
+        height: 56.25vw;
+        border: 0;
+        background: #000;
+      }
+      
+      @media (min-aspect-ratio: 16/9) {
+        iframe {
+          width: 177.78vh;
+          height: 100vh;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="frame-wrap">
+      <iframe
+        src="/STLWeb/index.html"
+        allow="autoplay; fullscreen; gamepad; clipboard-read; clipboard-write;"
+        allowfullscreen
+        loading="eager"
+        title="spread the love quiz"
+      ></iframe>
+    </div>
+  </body>
+</html>

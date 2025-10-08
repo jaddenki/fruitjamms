@@ -1,0 +1,467 @@
+---
+// No frontmatter needed for now
+---
+
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/png" href="/img/favicon.png" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="generator" content={Astro.generator} />
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
+		<title>jamms</title>
+		<style>
+			@font-face {
+				font-family: 'Terminal Grotesk';
+				src: url('/fonts/terminal-grotesque-webfont.woff2') format('woff2');
+				font-weight: normal;
+				font-style: normal;
+				font-display: swap;
+			}
+			
+			@font-face {
+				font-family: 'Neue Regrade';
+				src: url('/fonts/Neue Regrade Medium.otf') format('opentype');
+				font-weight: normal;
+				font-style: normal;
+				font-display: swap;
+			}
+			
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+			
+			::selection {
+				background: #FF13CC;
+				color: #ffffff;
+			}
+			
+			::-moz-selection {
+				background: #FF13CC;
+				color: #ffffff;
+			}
+			
+			body {
+				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+				background: #FAF4EB;
+				color: #6f4f68;
+				line-height: 1.5;
+				padding: 2rem 1rem;
+				min-height: 100vh;
+			}
+			
+			.container {
+				max-width: 1000px;
+				margin: 0 auto;
+			}
+			
+			header {
+				text-align: left;
+				margin-bottom: 3rem;
+				padding: 1rem 0;
+			}
+			
+			.header-content {
+				display: flex;
+				align-items: baseline;
+				justify-content: flex-start;
+				gap: 1rem;
+				margin-bottom: 1rem;
+			}
+			
+			.header-gif {
+				width: 60px;
+				height: 60px;
+				object-fit: contain;
+			}
+			
+			h1 {
+				font-size: 5.5rem;
+				font-weight: 900;
+				font-family: 'Terminal Grotesk', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+				color: #FF13CC;
+				margin-top: 3rem;
+				letter-spacing: -2px;
+				line-height: 0.9;
+			}
+			
+			.subtitle {
+				font-size: 1.1rem;
+				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+				color: #6f4f68;
+				font-weight: 400;
+				max-width: 500px;
+				margin-left: 0;
+				margin-right: auto;
+			}
+			
+			/* FEATURED GAME SECTION */
+			.featured-game {
+				margin-bottom: 4rem;
+			}
+			
+			.featured-content {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 3rem;
+				align-items: center;
+				background: #FAF4EB;
+				border: 3px solid #FF13CC;
+				border-radius: 0;
+				padding: 3rem;
+			}
+			
+			.featured-title {
+				font-size: 3.2rem;
+				font-family: 'Terminal Grotesk', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+				color: #FF13CC;
+				margin-bottom: 1.5rem;
+				font-weight: 900;
+				letter-spacing: -2px;
+				line-height: 0.9;
+			}
+			
+			.featured-description {
+				margin-bottom: 2rem;
+				color: #FF13CC;
+				font-weight: 400;
+				font-size: 1.2rem;
+				line-height: 1.6;
+				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+			}
+			
+			.featured-video {
+				position: relative;
+				width: 100%;
+				height: 0;
+				padding-bottom: 56.25%; /* 16:9 aspect ratio */
+			}
+			
+			.featured-video iframe {
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				border: 3px solid #FF13CC;
+				border-radius: 0;
+			}
+			
+			.featured-links {
+				margin-top: 2rem;
+			}
+			
+			.featured-link {
+				color: #FAF4EB;
+				text-decoration: none;
+				padding: 1rem 2rem;
+				background: #FF13CC;
+				border: 3px solid #FF13CC;
+				border-radius: 0;
+				font-size: 1rem;
+				font-weight: 700;
+				display: inline-block;
+				letter-spacing: 0.5px;
+				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+			}
+			
+			.featured-link:hover {
+				background: #FAF4EB;
+				color: #FF13CC;
+			}
+			
+
+			.credits {
+				text-align: left;
+				margin: 1.5rem 0 0 0;
+				padding: 0;
+			}
+			
+			.credits-text {
+				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+				color: #bd62aa;
+				font-size: 0.9rem;
+				font-weight: 400;
+				line-height: 1.4;
+			}
+			
+			.credit-link {
+				color: #FF13CC;
+				text-decoration: none;
+				font-weight: 500;
+				transition: color 0.2s ease;
+			}
+			
+			.credit-link:hover {
+				color: #6f4f68;
+				text-decoration: underline;
+			}
+			
+			.other-projects {
+				margin-top: 2rem;
+			}
+			
+			.section-title {
+				font-size: 2rem;
+				font-family: 'Terminal Grotesk', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+				color: #FF13CC;
+				margin-bottom: 2rem;
+				font-weight: 800;
+				letter-spacing: -1px;
+				text-align: center;
+			}
+			
+			.projects-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+				gap: 2rem;
+				max-width: 600px;
+				margin: 0 auto;
+			}
+			
+			.project-card {
+				background: #FAF4EB;
+				border: 3px solid #FF13CC;
+				border-radius: 0;
+				padding: 1.5rem;
+				position: relative;
+			}
+			
+			.project-title {
+				font-size: 1.4rem;
+				font-family: 'Terminal Grotesk', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+				color: #FF13CC;
+				margin-bottom: 0.8rem;
+				font-weight: 800;
+				letter-spacing: -1px;
+				line-height: 1;
+			}
+			
+			.project-description {
+				margin-bottom: 1rem;
+				color: #FF13CC;
+				font-weight: 400;
+				font-size: 0.9rem;
+				line-height: 1.4;
+				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+			}
+			
+			.video-container {
+				position: relative;
+				width: 100%;
+				height: 0;
+				padding-bottom: 56.25%; /* 16:9 aspect ratio */
+				margin: 1rem 0;
+			}
+			
+			.video-container iframe {
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				border: 2px solid #FF13CC;
+				border-radius: 0;
+			}
+			
+			
+			
+			
+			
+			
+			
+			
+			
+			.project-links {
+				margin-top: 2rem;
+				display: flex;
+				gap: 0.8rem;
+				flex-wrap: wrap;
+			}
+			
+			.project-link {
+				color: #ffffff;
+				text-decoration: none;
+				padding: 0.8rem 1.5rem;
+				background: #FF13CC;
+				border: 2px solid #FF13CC;
+				border-radius: 0;
+				font-size: 0.85rem;
+				font-weight: 700;
+				display: inline-block;
+				letter-spacing: 0.5px;
+				transition: all 0.2s ease;
+				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+			}
+			
+			.project-link:hover {
+				background: #ffffff;
+				color: #FF13CC;
+			}
+			
+			.status {
+				display: inline-block;
+				color: #FF13CC;
+				padding: 0.4rem 1rem;
+				font-size: 0.75rem;
+				margin-bottom: 1rem;
+				font-weight: 700;
+				background: #f0f9ff;
+				border: 2px solid #FF13CC;
+				border-radius: 0;
+				letter-spacing: 0.5px;
+				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+			}
+			
+			
+			@media (max-width: 768px) {
+				.featured-content {
+					grid-template-columns: 1fr;
+					gap: 2rem;
+					padding: 2rem;
+				}
+				
+				.featured-title {
+					font-size: 2.5rem;
+				}
+				
+				.featured-description {
+					font-size: 1.1rem;
+				}
+				
+				.projects-grid {
+					grid-template-columns: 1fr;
+					gap: 1.5rem;
+				}
+				
+				.header-content {
+					flex-direction: column;
+					gap: 0.5rem;
+					align-items: flex-start;
+				}
+				
+				.header-gif {
+					width: 50px;
+					height: 50px;
+				}
+				
+				h1 {
+					font-size: 2.2rem;
+					letter-spacing: -1px;
+				}
+				
+				.project-title {
+					font-size: 1.5rem;
+				}
+				
+				.project-card {
+					padding: 1.5rem;
+				}
+				
+				body {
+					padding: 1.5rem 1rem;
+				}
+				
+				header {
+					margin-bottom: 2rem;
+				}
+				
+				.container {
+					max-width: 100%;
+				}
+				
+				.section-title {
+					font-size: 1.5rem;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div class="container">
+			<header>
+				<div class="header-content">
+					<img src="/img/Sprite-000emty1.gif" alt="fruit jamms gif" class="header-gif" />
+					<h1>fruit jamms</h1>
+				</div>
+				<p class="subtitle">friends making cool things :D</p>
+			</header>
+			
+			<main>
+				<!-- STL -->
+				<section class="featured-game">
+					<div class="featured-content">
+						<div class="featured-info">
+							<h2 class="featured-title">Spread The Love</h2>
+							
+							<div class="featured-description">
+								<p>a dating sim where you get matched with someone based on a personality quiz about jams.</p>
+							</div>
+							
+							<div class="featured-links">
+								<a href="https://store.steampowered.com/app/3852520/Spread_The_Love/" target="_blank" class="featured-link">
+									Steam Page
+								</a>
+							</div>
+							
+							<div class="credits">
+								<p class="credits-text">
+									made with &lt;3 by 
+									<a href="https://x.com/anullja" target="_blank" class="credit-link">saahil</a>, 
+									<a href="https://jadden.xyz" target="_blank" class="credit-link">jadden</a>, 
+									<a href="https://aliciazhou.xyz" target="_blank" class="credit-link">alicia</a>, and 
+									<a href="https://x.com/randompossibly" target="_blank" class="credit-link">mason</a>
+								</p>
+							</div>
+						</div>
+						
+						<div class="featured-video">
+							<iframe
+								src="https://www.youtube.com/embed/MQsOGCQESOU?si=EaK_47q7OA_9MwRP" 
+								title="Spread The Love Trailer" 
+								frameborder="0" 
+								allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+								referrerpolicy="strict-origin-when-cross-origin" 
+								allowfullscreen>
+							</iframe>
+						</div>
+					</div>
+				</section>
+				
+				<!-- OTHER PROJECTS -->
+				<section class="other-projects">
+					<h3 class="section-title">in progress...</h3>
+					<div class="projects-grid">
+						<!-- ETEAAAAAA A-->
+						<div class="project-card">
+							<h4 class="project-title">ETea</h4>
+							<div class="project-description">
+								<p>you're an alien who got stuck on earth & now you work at a boba shop while pretending to be human.</p>
+							</div>
+							
+							<div class="video-container">
+								<iframe 
+									src="https://www.youtube.com/embed/XQC0lC0ZThI?si=EaK_47q7OA_9MwRP" 
+									title="ETea Teaser" 
+									frameborder="0" 
+									allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+									referrerpolicy="strict-origin-when-cross-origin" 
+									allowfullscreen>
+								</iframe>
+							</div>
+							
+							<div class="project-links">
+								<a href="https://store.steampowered.com/app/3085040/ETea/" target="_blank" class="project-link">
+									Steam Page
+								</a>
+							</div>
+						</div>
+					</div>
+				</section>
+			</main>
+		</div>
+	</body>
+</html>
