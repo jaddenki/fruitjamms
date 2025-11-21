@@ -10,25 +10,9 @@
 		<meta name="generator" content={Astro.generator} />
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap" rel="stylesheet">
+		<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 		<title>jamms</title>
 		<style>
-			@font-face {
-				font-family: 'Terminal Grotesk';
-				src: url('/fonts/terminal-grotesque-webfont.woff2') format('woff2');
-				font-weight: normal;
-				font-style: normal;
-				font-display: swap;
-			}
-			
-			@font-face {
-				font-family: 'Neue Regrade';
-				src: url('/fonts/Neue Regrade Medium.otf') format('opentype');
-				font-weight: normal;
-				font-style: normal;
-				font-display: swap;
-			}
-			
 			* {
 				margin: 0;
 				padding: 0;
@@ -36,218 +20,116 @@
 			}
 			
 			::selection {
-				background: #FF13CC;
+				background: #d946ef;
 				color: #ffffff;
 			}
 			
 			::-moz-selection {
-				background: #FF13CC;
+				background: #d946ef;
 				color: #ffffff;
 			}
 			
 			body {
-				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-				background: #FAF4EB;
-				color: #6f4f68;
-				line-height: 1.5;
-				padding: 2rem 1rem;
+				font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+				background: #fafafa;
+				color: #171717;
+				line-height: 1.6;
+				padding: 0;
 				min-height: 100vh;
 			}
 			
 			.container {
-				max-width: 1000px;
+				max-width: 1400px;
 				margin: 0 auto;
+				padding: 6rem 3rem 3rem 3rem;
 			}
 			
 			header {
 				text-align: left;
-				margin-bottom: 3rem;
-				padding: 1rem 0;
+				margin-bottom: 5rem;
 			}
 			
 			.header-content {
 				display: flex;
-				align-items: baseline;
+				align-items: center;
 				justify-content: flex-start;
-				gap: 1rem;
-				margin-bottom: 1rem;
+				gap: 2rem;
+				margin-bottom: 2rem;
 			}
 			
 			.header-gif {
-				width: 60px;
-				height: 60px;
+				width: 90px;
+				height: 90px;
 				object-fit: contain;
 			}
 			
 			h1 {
-				font-size: 5.5rem;
-				font-weight: 900;
-				font-family: 'Terminal Grotesk', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-				color: #FF13CC;
-				margin-top: 3rem;
-				letter-spacing: -2px;
+				font-size: 9rem;
+				font-weight: 600;
+				color: #171717;
+				letter-spacing: -6px;
 				line-height: 0.9;
 			}
 			
 			.subtitle {
-				font-size: 1.1rem;
-				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-				color: #6f4f68;
+				font-size: 1.25rem;
+				color: #737373;
 				font-weight: 400;
-				max-width: 500px;
-				margin-left: 0;
-				margin-right: auto;
+				max-width: 650px;
+				margin-top: 1.5rem;
 			}
 			
-			/* FEATURED GAME SECTION */
-			.featured-game {
-				margin-bottom: 4rem;
-			}
-			
-			.featured-content {
-				display: grid;
-				grid-template-columns: 1fr 1fr;
-				gap: 3rem;
-				align-items: center;
-				background: #FAF4EB;
-				border: 3px solid #FF13CC;
-				border-radius: 0;
-				padding: 3rem;
-			}
-			
-			.featured-title {
-				font-size: 3.2rem;
-				font-family: 'Terminal Grotesk', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-				color: #FF13CC;
-				margin-bottom: 1.5rem;
-				font-weight: 900;
-				letter-spacing: -2px;
-				line-height: 0.9;
-			}
-			
-			.featured-description {
-				margin-bottom: 2rem;
-				color: #FF13CC;
-				font-weight: 400;
-				font-size: 1.2rem;
-				line-height: 1.6;
-				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-			}
-			
-			.featured-video {
-				position: relative;
-				width: 100%;
-				height: 0;
-				padding-bottom: 56.25%; /* 16:9 aspect ratio */
-			}
-			
-			.featured-video iframe {
-				position: absolute;
-				top: 0;
-				left: 0;
-				width: 100%;
-				height: 100%;
-				border: 3px solid #FF13CC;
-				border-radius: 0;
-			}
-			
-			.featured-links {
-				margin-top: 2rem;
-			}
-			
-			.featured-link {
-				color: #FAF4EB;
-				text-decoration: none;
-				padding: 1rem 2rem;
-				background: #FF13CC;
-				border: 3px solid #FF13CC;
-				border-radius: 0;
-				font-size: 1rem;
-				font-weight: 700;
-				display: inline-block;
-				letter-spacing: 0.5px;
-				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-			}
-			
-			.featured-link:hover {
-				background: #FAF4EB;
-				color: #FF13CC;
-			}
-			
-
 			.credits {
 				text-align: left;
-				margin: 1.5rem 0 0 0;
+				margin: 2rem 0 0 0;
 				padding: 0;
 			}
 			
 			.credits-text {
-				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-				color: #bd62aa;
-				font-size: 0.9rem;
+				color: #a3a3a3;
+				font-size: 0.95rem;
 				font-weight: 400;
-				line-height: 1.4;
+				line-height: 1.6;
 			}
 			
 			.credit-link {
-				color: #FF13CC;
+				color: #525252;
 				text-decoration: none;
 				font-weight: 500;
-				transition: color 0.2s ease;
 			}
 			
 			.credit-link:hover {
-				color: #6f4f68;
-				text-decoration: underline;
-			}
-			
-			.other-projects {
-				margin-top: 2rem;
-			}
-			
-			.section-title {
-				font-size: 2rem;
-				font-family: 'Terminal Grotesk', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-				color: #FF13CC;
-				margin-bottom: 2rem;
-				font-weight: 800;
-				letter-spacing: -1px;
-				text-align: center;
+				color: #d946ef;
 			}
 			
 			.projects-grid {
 				display: grid;
-				grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-				gap: 2rem;
-				max-width: 600px;
-				margin: 0 auto;
+				grid-template-columns: 1fr 1fr;
+				gap: 3rem;
 			}
 			
 			.project-card {
-				background: #FAF4EB;
-				border: 3px solid #FF13CC;
-				border-radius: 0;
-				padding: 1.5rem;
+				background: transparent;
+				border: none;
+				padding: 0;
 				position: relative;
 			}
 			
 			.project-title {
-				font-size: 1.4rem;
-				font-family: 'Terminal Grotesk', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-				color: #FF13CC;
-				margin-bottom: 0.8rem;
-				font-weight: 800;
-				letter-spacing: -1px;
+				font-size: 3rem;
+				color: #171717;
+				margin-bottom: 1rem;
+				font-weight: 600;
+				letter-spacing: -2px;
 				line-height: 1;
 			}
 			
 			.project-description {
-				margin-bottom: 1rem;
-				color: #FF13CC;
+				margin-bottom: 2rem;
+				color: #525252;
 				font-weight: 400;
-				font-size: 0.9rem;
-				line-height: 1.4;
-				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+				font-size: 1rem;
+				line-height: 1.6;
 			}
 			
 			.video-container {
@@ -255,7 +137,10 @@
 				width: 100%;
 				height: 0;
 				padding-bottom: 56.25%; /* 16:9 aspect ratio */
-				margin: 1rem 0;
+				margin: 2rem 0;
+				overflow: hidden;
+				border-radius: 16px;
+				background: #e5e5e5;
 			}
 			
 			.video-container iframe {
@@ -264,118 +149,68 @@
 				left: 0;
 				width: 100%;
 				height: 100%;
-				border: 2px solid #FF13CC;
-				border-radius: 0;
+				border: none;
+				border-radius: 16px;
 			}
-			
-			
-			
-			
-			
-			
-			
-			
 			
 			.project-links {
 				margin-top: 2rem;
 				display: flex;
-				gap: 0.8rem;
+				gap: 1rem;
 				flex-wrap: wrap;
 			}
 			
 			.project-link {
 				color: #ffffff;
 				text-decoration: none;
-				padding: 0.8rem 1.5rem;
-				background: #FF13CC;
-				border: 2px solid #FF13CC;
-				border-radius: 0;
-				font-size: 0.85rem;
-				font-weight: 700;
+				padding: 0.9rem 1.75rem;
+				background: #171717;
+				border: none;
+				border-radius: 8px;
+				font-size: 0.95rem;
+				font-weight: 500;
 				display: inline-block;
-				letter-spacing: 0.5px;
-				transition: all 0.2s ease;
-				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
 			}
 			
 			.project-link:hover {
-				background: #ffffff;
-				color: #FF13CC;
+				background: #d946ef;
 			}
-			
-			.status {
-				display: inline-block;
-				color: #FF13CC;
-				padding: 0.4rem 1rem;
-				font-size: 0.75rem;
-				margin-bottom: 1rem;
-				font-weight: 700;
-				background: #f0f9ff;
-				border: 2px solid #FF13CC;
-				border-radius: 0;
-				letter-spacing: 0.5px;
-				font-family: 'Neue Regrade', 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-			}
-			
 			
 			@media (max-width: 768px) {
-				.featured-content {
-					grid-template-columns: 1fr;
-					gap: 2rem;
-					padding: 2rem;
+				.container {
+					padding: 3rem 1.5rem;
 				}
 				
-				.featured-title {
+				.header-content {
+					gap: 1.5rem;
+				}
+				
+				.header-gif {
+					width: 60px;
+					height: 60px;
+				}
+				
+				h1 {
+					font-size: 4.5rem;
+					letter-spacing: -3px;
+				}
+				
+				.subtitle {
+					font-size: 1rem;
+				}
+				
+				.project-title {
 					font-size: 2.5rem;
+					letter-spacing: -2px;
 				}
 				
-				.featured-description {
-					font-size: 1.1rem;
+				header {
+					margin-bottom: 4rem;
 				}
 				
 				.projects-grid {
 					grid-template-columns: 1fr;
-					gap: 1.5rem;
-				}
-				
-				.header-content {
-					flex-direction: column;
-					gap: 0.5rem;
-					align-items: flex-start;
-				}
-				
-				.header-gif {
-					width: 50px;
-					height: 50px;
-				}
-				
-				h1 {
-					font-size: 2.2rem;
-					letter-spacing: -1px;
-				}
-				
-				.project-title {
-					font-size: 1.5rem;
-				}
-				
-				.project-card {
-					padding: 1.5rem;
-				}
-				
-				body {
-					padding: 1.5rem 1rem;
-				}
-				
-				header {
-					margin-bottom: 2rem;
-				}
-				
-				.container {
-					max-width: 100%;
-				}
-				
-				.section-title {
-					font-size: 1.5rem;
+					gap: 3rem;
 				}
 			}
 		</style>
@@ -387,22 +222,33 @@
 					<img src="/img/Sprite-000emty1.gif" alt="fruit jamms gif" class="header-gif" />
 					<h1>fruit jamms</h1>
 				</div>
-				<p class="subtitle">friends making cool things :D</p>
+				<p class="subtitle">we're friends who make cool games together!</p>
 			</header>
 			
 			<main>
-				<!-- STL -->
-				<section class="featured-game">
-					<div class="featured-content">
-						<div class="featured-info">
-							<h2 class="featured-title">Spread The Love</h2>
-							
-							<div class="featured-description">
+				<!-- PROJECTS -->
+				<section class="other-projects">
+					<div class="projects-grid">
+						<!-- Spread The Love -->
+						<div class="project-card">
+							<h4 class="project-title">Spread The Love</h4>
+							<div class="project-description">
 								<p>a dating sim where you get matched with someone based on a personality quiz about jams.</p>
 							</div>
 							
-							<div class="featured-links">
-								<a href="https://store.steampowered.com/app/3852520/Spread_The_Love/" target="_blank" class="featured-link">
+							<div class="video-container">
+								<iframe
+									src="https://www.youtube.com/embed/MQsOGCQESOU?si=EaK_47q7OA_9MwRP" 
+									title="Spread The Love Trailer" 
+									frameborder="0" 
+									allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+									referrerpolicy="strict-origin-when-cross-origin" 
+									allowfullscreen>
+								</iframe>
+							</div>
+							
+							<div class="project-links">
+								<a href="https://store.steampowered.com/app/3852520/Spread_The_Love/" target="_blank" class="project-link">
 									Steam Page
 								</a>
 							</div>
@@ -418,24 +264,7 @@
 							</div>
 						</div>
 						
-						<div class="featured-video">
-							<iframe
-								src="https://www.youtube.com/embed/MQsOGCQESOU?si=EaK_47q7OA_9MwRP" 
-								title="Spread The Love Trailer" 
-								frameborder="0" 
-								allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-								referrerpolicy="strict-origin-when-cross-origin" 
-								allowfullscreen>
-							</iframe>
-						</div>
-					</div>
-				</section>
-				
-				<!-- OTHER PROJECTS -->
-				<section class="other-projects">
-					<h3 class="section-title">in progress...</h3>
-					<div class="projects-grid">
-						<!-- ETEAAAAAA A-->
+						<!-- ETea -->
 						<div class="project-card">
 							<h4 class="project-title">ETea</h4>
 							<div class="project-description">
@@ -465,3 +294,4 @@
 		</div>
 	</body>
 </html>
+
