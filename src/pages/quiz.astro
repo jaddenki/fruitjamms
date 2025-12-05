@@ -21,6 +21,7 @@
         overflow: hidden;
         position: fixed;
         width: 100%;
+        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
       }
       
       .frame-wrap { 
@@ -31,9 +32,12 @@
         height: 100vh; 
         overflow: hidden;
         display: flex;
-        justify-content: center;
+        flex-direction: column;
+        justify-content: flex-start;
         align-items: center;
         background: #ffffff;
+        padding: 2rem;
+        gap: 2rem;
       }
       
       iframe {
@@ -49,10 +53,29 @@
           height: 100vh;
         }
       }
+      			.project-link {
+				color: #ffffff;
+				text-decoration: none;
+				padding: 0.9rem 1.75rem;
+				background: #171717;
+				border: none;
+				border-radius: 8px;
+				font-size: 0.95rem;
+				font-weight: 500;
+				display: inline-block;
+			}
+			
+			.project-link:hover {
+				background: #ff0cba;
+			}
     </style>
   </head>
   <body>
+
     <div class="frame-wrap">
+      <a href="/" target="_blank" class="project-link">
+        back
+      </a>
       <iframe
         src="/STLWeb/index.html"
         allow="autoplay; fullscreen; gamepad; clipboard-read; clipboard-write;"
