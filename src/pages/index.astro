@@ -1,355 +1,78 @@
 ---
-// No frontmatter needed for now
+import Layout from '../layouts/Layout.astro';
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/png" href="/img/favicon.png" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<meta name="generator" content={Astro.generator} />
-		<link rel="preconnect" href="https://fonts.googleapis.com">
-		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-		<title>jamms</title>
-		<style>
-			* {
-				margin: 0;
-				padding: 0;
-				box-sizing: border-box;
-			}
-			
-			::selection {
-				background: #ff0cba;
-				color: #ffffff;
-			}
-			
-			::-moz-selection {
-				background: #ff0cba;
-				color: #ffffff;
-			}
-			
-			body {
-				font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
-				background: #fafafa;
-				color: #171717;
-				line-height: 1.6;
-				padding: 0;
-				min-height: 100vh;
-			}
-			
-			.container {
-				max-width: 1400px;
-				margin: 0 auto;
-				padding: 6rem 3rem 3rem 3rem;
-			}
-			
-			header {
-				text-align: left;
-				margin-bottom: 5rem;
-			}
-			
-			.header-content {
-				display: flex;
-				align-items: center;
-				justify-content: flex-start;
-				gap: 2rem;
-				margin-bottom: 2rem;
-			}
-			
-			.header-gif {
-				width: 90px;
-				height: 90px;
-				object-fit: contain;
-				image-rendering: pixelated;
-				image-rendering: crisp-edges; /* Firefox fallback */
-			}
-			
-			h1 {
-				font-size: 9rem;
-				font-weight: 600;
-				color: #171717;
-				letter-spacing: -6px;
-				line-height: 0.9;
-			}
-			
-			.subtitle {
-				font-size: 1.25rem;
-				color: #737373;
-				font-weight: 400;
-				max-width: 650px;
-				margin-top: 1.5rem;
-			}
-			
-			.credits {
-				text-align: left;
-				margin: 2rem 0 0 0;
-				padding: 0;
-			}
-			
-			.credits-text {
-				color: #a3a3a3;
-				font-size: 0.95rem;
-				font-weight: 400;
-				line-height: 1.6;
-			}
-			
-			.credit-link {
-				color: #525252;
-				text-decoration: none;
-				font-weight: 500;
-			}
-			
-			.credit-link:hover {
-				color: #ff0cba;
-			}
-			
-			.contact-links {
-				display: flex;
-				gap: 1.5rem;
-				margin-top: 2rem;
-				flex-wrap: wrap;
-				align-items: center;
-			}
-			
-			.contact-link {
-				color: #737373;
-				text-decoration: none;
-				font-size: 1rem;
-				font-weight: 500;
-				display: inline-flex;
-				align-items: center;
-				gap: 0.5rem;
-			}
-			
-			.contact-link:hover {
-				color: #ff0cba;
-			}
-			
-			.contact-link svg {
-				width: 20px;
-				height: 20px;
-			}
-			
-			.projects-grid {
-				display: grid;
-				grid-template-columns: 1fr 1fr;
-				gap: 3rem;
-			}
-			
-			.project-card {
-				background: transparent;
-				border: none;
-				padding: 0;
-				position: relative;
-			}
-			
-			.project-title {
-				font-size: 3rem;
-				color: #171717;
-				margin-bottom: 1rem;
-				font-weight: 600;
-				letter-spacing: -2px;
-				line-height: 1;
-			}
-			
-			.project-description {
-				margin-bottom: 2rem;
-				color: #525252;
-				font-weight: 400;
-				font-size: 1rem;
-				line-height: 1.6;
-			}
-			
-			.video-container {
-				position: relative;
-				width: 100%;
-				height: 0;
-				padding-bottom: 56.25%; /* 16:9 aspect ratio */
-				margin: 2rem 0;
-				overflow: hidden;
-				border-radius: 16px;
-				background: #e5e5e5;
-			}
-			
-			.video-container iframe {
-				position: absolute;
-				top: 0;
-				left: 0;
-				width: 100%;
-				height: 100%;
-				border: none;
-				border-radius: 16px;
-			}
-			
-			.project-links {
-				margin-top: 2rem;
-				display: flex;
-				gap: 1rem;
-				flex-wrap: wrap;
-			}
-			
-			.project-link {
-				color: #ffffff;
-				text-decoration: none;
-				padding: 0.9rem 1.75rem;
-				background: #171717;
-				border: none;
-				border-radius: 8px;
-				font-size: 0.95rem;
-				font-weight: 500;
-				display: inline-block;
-			}
-			
-			.project-link:hover {
-				background: #ff0cba;
-			}
-			
-			@media (max-width: 768px) {
-				.container {
-					padding: 3rem 1.5rem;
-				}
-				
-				.header-content {
-					gap: 1.5rem;
-				}
-				
-				.header-gif {
-					width: 60px;
-					height: 60px;
-				}
-				
-				h1 {
-					font-size: 4.5rem;
-					letter-spacing: -3px;
-				}
-				
-				.subtitle {
-					font-size: 1rem;
-				}
-				
-				.project-title {
-					font-size: 2.5rem;
-					letter-spacing: -2px;
-				}
-				
-				header {
-					margin-bottom: 4rem;
-				}
-				
-				.projects-grid {
-					grid-template-columns: 1fr;
-					gap: 3rem;
-				}
-			}
-		</style>
-	</head>
-	<body>
-		<div class="container">
-			<header>
-				<div class="header-content">
-					<img src="/img/Sprite-000emty1.gif" alt="fruit jamms gif" class="header-gif" />
-					<h1>fruit jamms</h1>
+<Layout title="jamms" subtitle="we're friends who make cool games together!">
+	<!-- PROJECTS -->
+	<section class="other-projects">
+		<div class="projects-grid">
+			<!-- Spread The Love -->
+			<div class="project-card">
+				<h4 class="project-title">Spread The Love</h4>
+				<div class="project-description">
+					<p>a dating sim where you get matched with someone based on a personality quiz about jams.</p>
+					
 				</div>
-				<p class="subtitle">we're friends who make cool games together!</p>
 				
-				<div class="contact-links">
-					<a href="mailto:fruit@jam.ms" class="contact-link">
-						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<rect width="20" height="16" x="2" y="4" rx="2"/>
-							<path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
-						</svg>
-						fruit@jam.ms
-					</a>
-					<a href="https://discord.gg/yFTeQK7zBa" class="contact-link" target="_blank">
-						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-							<path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
-						</svg>
-						Discord
-					</a>
-					<a href="www.tiktok.com/@fruit.jamms" class="contact-link" target="_blank">
-						<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
-							<path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z"/>
-						</svg>
-						TikTok
+				<div class="video-container">
+					<iframe
+						src="https://www.youtube.com/embed/MQsOGCQESOU?si=EaK_47q7OA_9MwRP" 
+						title="Spread The Love Trailer" 
+						frameborder="0" 
+						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+						referrerpolicy="strict-origin-when-cross-origin" 
+						allowfullscreen>
+					</iframe>
+				</div>
+				
+				<div class="project-links">
+					<a href="/quiz" class="project-link">Take the quiz here!</a>
+					<a href="https://store.steampowered.com/app/3852520/Spread_The_Love/" target="_blank" class="project-link">
+						Steam Page
 					</a>
 				</div>
-			</header>
+				
+				<!-- <div class="credits">
+					<p class="credits-text">
+						made with &lt;3 by 
+						<a href="https://x.com/anullja" target="_blank" class="credit-link">saahil</a>, 
+						<a href="https://jadden.xyz" target="_blank" class="credit-link">jadden</a>, 
+						<a href="https://aliciazhou.xyz" target="_blank" class="credit-link">alicia</a>, and 
+						<a href="https://x.com/randompossibly" target="_blank" class="credit-link">mason</a>
+					</p>
+				</div> -->
+			</div>
 			
-			<main>
-				<!-- PROJECTS -->
-				<section class="other-projects">
-					<div class="projects-grid">
-						<!-- Spread The Love -->
-						<div class="project-card">
-							<h4 class="project-title">Spread The Love</h4>
-							<div class="project-description">
-								<p>a dating sim where you get matched with someone based on a personality quiz about jams.</p>
-								
-							</div>
-							
-							<div class="video-container">
-								<iframe
-									src="https://www.youtube.com/embed/MQsOGCQESOU?si=EaK_47q7OA_9MwRP" 
-									title="Spread The Love Trailer" 
-									frameborder="0" 
-									allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-									referrerpolicy="strict-origin-when-cross-origin" 
-									allowfullscreen>
-								</iframe>
-							</div>
-							
-							<div class="project-links">
-								<a href="/quiz" class="project-link">Take the quiz here!</a>
-								<a href="https://store.steampowered.com/app/3852520/Spread_The_Love/" target="_blank" class="project-link">
-									Steam Page
-								</a>
-							</div>
-							
-							<div class="credits">
-								<p class="credits-text">
-									made with &lt;3 by 
-									<a href="https://x.com/anullja" target="_blank" class="credit-link">saahil</a>, 
-									<a href="https://jadden.xyz" target="_blank" class="credit-link">jadden</a>, 
-									<a href="https://aliciazhou.xyz" target="_blank" class="credit-link">alicia</a>, and 
-									<a href="https://x.com/randompossibly" target="_blank" class="credit-link">mason</a>
-								</p>
-							</div>
-						</div>
-						
-						<!-- ETea -->
-						<div class="project-card">
-							<h4 class="project-title">ETea</h4>
-							<div class="project-description">
-								<p>you're an alien who got stuck on earth & now you work at a boba shop while pretending to be human.</p>
-							</div>
-							
-							<div class="video-container">
-								<iframe 
-									src="https://www.youtube.com/embed/XQC0lC0ZThI?si=EaK_47q7OA_9MwRP" 
-									title="ETea Teaser" 
-									frameborder="0" 
-									allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
-									referrerpolicy="strict-origin-when-cross-origin" 
-									allowfullscreen>
-								</iframe>
-							</div>
-							
-							<div class="project-links">
-								<a href="https://store.steampowered.com/app/3085040/ETea/" target="_blank" class="project-link">
-									Steam Page
-								</a>
-							</div>
-							<div class="credits">
-								<p class="credits-text">
-									in progress... stay tuned!
-								</p>
-							</div>
-						</div>
-					</div>
-				</section>
-			</main>
+			<!-- ETea -->
+			<div class="project-card">
+				<h4 class="project-title">ETea</h4>
+				<div class="project-description">
+					<p>you're an alien who got stuck on earth & now you work at a boba shop while pretending to be human.</p>
+				</div>
+				
+				<div class="video-container">
+					<iframe 
+						src="https://www.youtube.com/embed/XQC0lC0ZThI?si=EaK_47q7OA_9MwRP" 
+						title="ETea Teaser" 
+						frameborder="0" 
+						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+						referrerpolicy="strict-origin-when-cross-origin" 
+						allowfullscreen>
+					</iframe>
+				</div>
+				
+				<div class="project-links">
+					<a href="https://store.steampowered.com/app/3085040/ETea/" target="_blank" class="project-link">
+						Steam Page
+					</a>
+				</div>
+				<!-- <div class="credits">
+					<p class="credits-text">
+						in progress... stay tuned!
+					</p>
+				</div> -->
+			</div>
 		</div>
-	</body>
-</html>
+	</section>
+</Layout>
 
