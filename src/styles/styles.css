@@ -39,10 +39,10 @@ body {
 	right: 0;
 	background: #fafafa;
 	z-index: 1000;
-	padding-top: 2rem;
+	padding-top: 4rem;
 	padding-bottom: 1rem;
 	margin-bottom: 0;
-	margin-top: 2rem;
+	/* margin-top: 2rem; */
 	border-bottom: 1px solid transparent;
 	transition: none;
 }
