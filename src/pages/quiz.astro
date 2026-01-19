@@ -1,88 +1,99 @@
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" type="image/png" href="/img/favicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="generator" content={Astro.generator} />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-    <title>STL - Spread The Love</title>
-    <style>
-      * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      }
-      
-      html, body {
-        height: 100%;
-        overflow: hidden;
-        position: fixed;
-        width: 100%;
-        font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
-      }
-      
-      .frame-wrap { 
-        position: fixed; 
-        top: 0;
-        left: 0;
-        width: 100vw; 
-        height: 100vh; 
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        align-items: center;
-        background: #ffffff;
-        padding: 2rem;
-        gap: 2rem;
-      }
-      
-      iframe {
-        width: 100vw; 
-        height: 56.25vw;
-        border: 0;
-        background: #ffffff;
-      }
-      
-      @media (min-aspect-ratio: 16/9) {
-        iframe {
-          width: 177.78vh;
-          height: 100vh;
-        }
-      }
-      			.project-link {
-				color: #ffffff;
-				text-decoration: none;
-				padding: 0.9rem 1.75rem;
-				background: #171717;
-				border: none;
-				border-radius: 8px;
-				font-size: 0.95rem;
-				font-weight: 500;
-				display: inline-block;
-			}
-			
-			.project-link:hover {
-				background: #ff0cba;
-			}
-    </style>
-  </head>
-  <body>
+    <head>
+        <script
+            defer
+            src="https://umami.purduehackers.com/script.js"
+            data-website-id="6b066951-4b5a-4db5-b68f-895676bc4e36"></script>
+        <meta charset="utf-8" />
+        <link rel="icon" type="image/png" href="/img/favicon.png" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="generator" content={Astro.generator} />
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1, user-scalable=no"
+        />
+        <title>STL - Spread The Love</title>
+        <style>
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
 
-    <div class="frame-wrap">
-      <a href="/" target="_blank" class="project-link">
-        back
-      </a>
-      <iframe
-        src="/STLWeb/index.html"
-        allow="autoplay; fullscreen; gamepad; clipboard-read; clipboard-write;"
-        allowfullscreen
-        loading="eager"
-        title="spread the love quiz"
-      ></iframe>
-    </div>
-  </body>
+            html,
+            body {
+                height: 100%;
+                overflow: hidden;
+                position: fixed;
+                width: 100%;
+                font-family:
+                    "Space Grotesk",
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    sans-serif;
+            }
+
+            .frame-wrap {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100vw;
+                height: 100vh;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                justify-content: flex-start;
+                align-items: center;
+                background: #ffffff;
+                padding: 2rem;
+                gap: 2rem;
+            }
+
+            iframe {
+                width: 100vw;
+                height: 56.25vw;
+                border: 0;
+                background: #ffffff;
+            }
+
+            @media (min-aspect-ratio: 16/9) {
+                iframe {
+                    width: 177.78vh;
+                    height: 100vh;
+                }
+            }
+            .project-link {
+                color: #ffffff;
+                text-decoration: none;
+                padding: 0.9rem 1.75rem;
+                background: #171717;
+                border: none;
+                border-radius: 8px;
+                font-size: 0.95rem;
+                font-weight: 500;
+                display: inline-block;
+            }
+
+            .project-link:hover {
+                background: #ff0cba;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="frame-wrap">
+            <a href="/" target="_blank" class="project-link"> back </a>
+            <iframe
+                src="/STLWeb/index.html"
+                allow="autoplay; fullscreen; gamepad; clipboard-read; clipboard-write;"
+                allowfullscreen
+                loading="eager"
+                title="spread the love quiz"></iframe>
+        </div>
+    </body>
 </html>
