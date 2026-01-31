@@ -388,7 +388,7 @@ html {
 }
 
 /* ===========================================
-   Responsive
+   Responsive - Tablet
    =========================================== */
 @media (max-width: 900px) {
   .container {
@@ -417,5 +417,172 @@ html {
 
   .content {
     max-width: 100%;
+  }
+
+  .project-links {
+    gap: 40px;
+  }
+}
+
+/* ===========================================
+   Responsive - Mobile
+   =========================================== */
+@media (max-width: 600px) {
+  html, body {
+    font-size: 16px;
+  }
+
+  .container {
+    padding: 32px 20px;
+  }
+
+  .sidebar {
+    padding-bottom: 24px;
+    margin-bottom: 24px;
+    gap: 16px;
+  }
+
+  /* Logo */
+  .logo {
+    gap: 8px;
+  }
+
+  .logo-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  .logo-text {
+    font-size: 20px;
+  }
+
+  /* Navigation */
+  .nav {
+    gap: 16px;
+  }
+
+  .nav-link {
+    font-size: 14px;
+  }
+
+  /* Typography */
+  .text-sm {
+    font-size: 12px;
+  }
+
+  .text-md {
+    font-size: 14px;
+  }
+
+  .text-lg {
+    font-size: 16px;
+  }
+
+  /* Links */
+  .link-muted,
+  .link-dark {
+    font-size: 12px;
+  }
+
+  /* Icons */
+  .icon-sm {
+    width: 20px;
+    height: 20px;
+  }
+
+  .icon-md {
+    width: 24px;
+    height: 24px;
+  }
+
+  /* Home */
+  .tagline {
+    font-size: 14px;
+  }
+
+  .social-links {
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  /* Projects */
+  .projects-list {
+    padding-left: 16px;
+    gap: 16px;
+  }
+
+  .project-detail {
+    gap: 16px;
+  }
+
+  .project-header {
+    gap: 12px;
+  }
+
+  .project-title {
+    font-size: 16px;
+  }
+
+  .project-description {
+    font-size: 12px;
+  }
+
+  .project-links {
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  /* Team */
+  .team-grid {
+    grid-template-columns: repeat(2, auto);
+    gap: 32px 40px;
+    justify-content: center;
+  }
+
+  .avatar-wrapper {
+    width: 140px;
+    height: 140px;
+  }
+
+  .member-name {
+    font-size: 14px;
+  }
+
+  .member-role {
+    font-size: 12px;
+  }
+
+  .team-member {
+    gap: 10px;
+  }
+}
+
+/* ===========================================
+   Responsive - Small Mobile
+   =========================================== */
+@media (max-width: 400px) {
+  .container {
+    padding: 24px 16px;
+  }
+
+  .sidebar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .nav {
+    padding-left: 36px;
+  }
+
+  .team-grid {
+    grid-template-columns: repeat(2, auto);
+    gap: 24px 24px;
+    justify-content: center;
+  }
+
+  .avatar-wrapper {
+    width: 120px;
+    height: 120px;
   }
 }

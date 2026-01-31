@@ -6,7 +6,19 @@ import BaseLayout from '../layouts/BaseLayout.astro';
   <div class="quiz-page">
     <a href="/projects/spread-the-love" class="link-muted">&lt; back</a>
     
-    <div class="quiz-container">
+    <!-- Mobile message -->
+    <div id="mobile-message" class="mobile-message">
+      <p class="mobile-title">oops!</p>
+      <p class="mobile-text">
+        this quiz doesn't work on mobile devices.
+      </p>
+      <p class="mobile-text">
+        please open this page on a pc to take the quiz!
+      </p>
+    </div>
+
+    <!-- Desktop quiz -->
+    <div id="quiz-container-wrapper" class="quiz-container">
       <div id="unity-container">
         <canvas id="unity-canvas" tabindex="-1"></canvas>
         <div id="unity-loading-bar">
@@ -37,16 +49,39 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     gap: 16px;
   }
 
+  /* Mobile message - hidden by default, shown via JS on mobile */
+  .mobile-message {
+    display: none;
+    flex-direction: column;
+    gap: 16px;
+    padding: 32px;
+    background: #f5f5f5;
+    text-align: center;
+  }
+
+  .mobile-title {
+    font-size: 24px;
+    color: var(--accent-pink);
+  }
+
+  .mobile-text {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.8;
+  }
+
   #unity-container {
     position: relative;
     width: 960px;
     height: 600px;
+    max-width: 100%;
     background: #1a1a1a;
   }
 
   #unity-canvas {
     width: 960px;
     height: 600px;
+    max-width: 100%;
     background: #1a1a1a;
   }
 
@@ -104,10 +139,43 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       aspect-ratio: 960 / 600;
     }
   }
+
+  @media (max-width: 600px) {
+    .quiz-page {
+      gap: 16px;
+    }
+
+    .quiz-container {
+      gap: 12px;
+    }
+
+    #unity-progress-bar-empty {
+      width: 150px;
+      height: 8px;
+    }
+
+    #fullscreen-btn {
+      font-size: 12px;
+    }
+
+    .mobile-message {
+      padding: 24px 16px;
+    }
+
+    .mobile-title {
+      font-size: 18px;
+    }
+
+    .mobile-text {
+      font-size: 12px;
+    }
+  }
 </style>
 
 <script>
   document.addEventListener('astro:page-load', () => {
+    const quizWrapper = document.querySelector("#quiz-container-wrapper") as HTMLElement;
+    const mobileMessage = document.querySelector("#mobile-message") as HTMLElement;
     const container = document.querySelector("#unity-container");
     const canvas = document.querySelector("#unity-canvas") as HTMLCanvasElement;
     const loadingBar = document.querySelector("#unity-loading-bar") as HTMLElement;
@@ -115,6 +183,19 @@ import BaseLayout from '../layouts/BaseLayout.astro';
     const fullscreenButton = document.querySelector("#fullscreen-btn");
     const warningBanner = document.querySelector("#unity-warning") as HTMLElement;
 
+    if (!quizWrapper || !mobileMessage) return;
+
+    // Check if mobile device
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    if (isMobile) {
+      // Show mobile message, hide quiz
+      mobileMessage.style.display = 'flex';
+      quizWrapper.style.display = 'none';
+      return;
+    }
+
+    // Desktop: load the quiz
     if (!canvas || !loadingBar || !progressBarFull || !warningBanner) return;
 
     function unityShowBanner(msg: string, type: string) {
@@ -147,11 +228,6 @@ import BaseLayout from '../layouts/BaseLayout.astro';
       productVersion: "1.0",
       showBanner: unityShowBanner,
     };
-
-    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-      container?.classList.add("unity-mobile");
-      canvas.classList.add("unity-mobile");
-    }
 
     loadingBar.style.display = "block";
 
