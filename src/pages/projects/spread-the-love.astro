@@ -1,0 +1,28 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+---
+
+<BaseLayout title=": stl">
+  <div class="project-detail">
+    <a href="/projects" class="link-muted link-pink">&lt; back</a>
+    
+    <div class="project-header">
+      <img src="/img/app_icon 2.png" alt="" class="icon icon-md" />
+      <h1 class="project-title" style="color: #E36EA2;">Spread the Love</h1>
+    </div>
+    
+    <p class="project-description">
+      a dating sim where you get matched with someone based on a personality quiz about jams.
+    </p>
+    
+    <div class="project-links">
+      <a href="https://store.steampowered.com/app/3852520/Spread_The_Love/" target="_blank" class="link-dark link-pink">Steam</a>
+      <a href="/quiz" class="link-dark link-pink">Take the quiz</a>
+    </div>
+  </div>
+  <style>
+    .link-pink:hover {
+      color: #E36EA2 !important;
+    }
+  </style>
+</BaseLayout>

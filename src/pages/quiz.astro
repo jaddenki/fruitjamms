@@ -1,99 +1,177 @@
-<html lang="en">
-    <head>
-        <script
-            defer
-            src="https://umami.purduehackers.com/script.js"
-            data-website-id="6b066951-4b5a-4db5-b68f-895676bc4e36"></script>
-        <meta charset="utf-8" />
-        <link rel="icon" type="image/png" href="/img/favicon.png" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta name="generator" content={Astro.generator} />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link
-            href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
-            rel="stylesheet"
-        />
-        <meta
-            name="viewport"
-            content="width=device-width, initial-scale=1, user-scalable=no"
-        />
-        <title>STL - Spread The Love</title>
-        <style>
-            * {
-                margin: 0;
-                padding: 0;
-                box-sizing: border-box;
-            }
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
 
-            html,
-            body {
-                height: 100%;
-                overflow: hidden;
-                position: fixed;
-                width: 100%;
-                font-family:
-                    "Space Grotesk",
-                    -apple-system,
-                    BlinkMacSystemFont,
-                    sans-serif;
-            }
-
-            .frame-wrap {
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100vw;
-                height: 100vh;
-                overflow: hidden;
-                display: flex;
-                flex-direction: column;
-                justify-content: flex-start;
-                align-items: center;
-                background: #ffffff;
-                padding: 2rem;
-                gap: 2rem;
-            }
-
-            iframe {
-                width: 100vw;
-                height: 56.25vw;
-                border: 0;
-                background: #ffffff;
-            }
-
-            @media (min-aspect-ratio: 16/9) {
-                iframe {
-                    width: 177.78vh;
-                    height: 100vh;
-                }
-            }
-            .project-link {
-                color: #ffffff;
-                text-decoration: none;
-                padding: 0.9rem 1.75rem;
-                background: #171717;
-                border: none;
-                border-radius: 8px;
-                font-size: 0.95rem;
-                font-weight: 500;
-                display: inline-block;
-            }
-
-            .project-link:hover {
-                background: #ff0cba;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="frame-wrap">
-            <a href="/" target="_blank" class="project-link"> back </a>
-            <iframe
-                src="/STLWeb/index.html"
-                allow="autoplay; fullscreen; gamepad; clipboard-read; clipboard-write;"
-                allowfullscreen
-                loading="eager"
-                title="spread the love quiz"></iframe>
+<BaseLayout title=" quiz">
+  <div class="quiz-page">
+    <a href="/projects/spread-the-love" class="link-muted">&lt; back</a>
+    
+    <div class="quiz-container">
+      <div id="unity-container">
+        <canvas id="unity-canvas" tabindex="-1"></canvas>
+        <div id="unity-loading-bar">
+          <div id="unity-progress-bar-empty">
+            <div id="unity-progress-bar-full"></div>
+          </div>
         </div>
-    </body>
-</html>
+        <div id="unity-warning"></div>
+      </div>
+      <div class="quiz-controls">
+        <button id="fullscreen-btn" class="link-dark">fullscreen</button>
+      </div>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .quiz-page {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    width: 100%;
+  }
+
+  .quiz-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  #unity-container {
+    position: relative;
+    width: 960px;
+    height: 600px;
+    background: #1a1a1a;
+  }
+
+  #unity-canvas {
+    width: 960px;
+    height: 600px;
+    background: #1a1a1a;
+  }
+
+  #unity-loading-bar {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    display: none;
+  }
+
+  #unity-progress-bar-empty {
+    width: 200px;
+    height: 12px;
+    background: #333;
+  }
+
+  #unity-progress-bar-full {
+    width: 0%;
+    height: 100%;
+    background: var(--accent-pink);
+  }
+
+  #unity-warning {
+    position: absolute;
+    left: 50%;
+    top: 10px;
+    transform: translateX(-50%);
+    font-size: 16px;
+  }
+
+  .quiz-controls {
+    display: flex;
+    gap: 24px;
+  }
+
+  #fullscreen-btn {
+    font-family: var(--font-pixel);
+    font-size: 24px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-dark);
+  }
+
+  #fullscreen-btn:hover {
+    color: var(--accent-pink);
+  }
+
+  @media (max-width: 1000px) {
+    #unity-container,
+    #unity-canvas {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 960 / 600;
+    }
+  }
+</style>
+
+<script>
+  document.addEventListener('astro:page-load', () => {
+    const container = document.querySelector("#unity-container");
+    const canvas = document.querySelector("#unity-canvas") as HTMLCanvasElement;
+    const loadingBar = document.querySelector("#unity-loading-bar") as HTMLElement;
+    const progressBarFull = document.querySelector("#unity-progress-bar-full") as HTMLElement;
+    const fullscreenButton = document.querySelector("#fullscreen-btn");
+    const warningBanner = document.querySelector("#unity-warning") as HTMLElement;
+
+    if (!canvas || !loadingBar || !progressBarFull || !warningBanner) return;
+
+    function unityShowBanner(msg: string, type: string) {
+      function updateBannerVisibility() {
+        warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+      }
+      const div = document.createElement('div');
+      div.innerHTML = msg;
+      warningBanner.appendChild(div);
+      if (type == 'error') div.style.cssText = 'background: red; padding: 10px;';
+      else {
+        if (type == 'warning') div.style.cssText = 'background: yellow; padding: 10px;';
+        setTimeout(function() {
+          warningBanner.removeChild(div);
+          updateBannerVisibility();
+        }, 5000);
+      }
+      updateBannerVisibility();
+    }
+
+    const buildUrl = "/STLWeb/Build";
+    const loaderUrl = buildUrl + "/STLWeb.loader.js";
+    const config = {
+      dataUrl: buildUrl + "/STLWeb.data.unityweb",
+      frameworkUrl: buildUrl + "/STLWeb.framework.js.unityweb",
+      codeUrl: buildUrl + "/STLWeb.wasm.unityweb",
+      streamingAssetsUrl: "/STLWeb/StreamingAssets",
+      companyName: "Jamms",
+      productName: "SpreadTheLove",
+      productVersion: "1.0",
+      showBanner: unityShowBanner,
+    };
+
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+      container?.classList.add("unity-mobile");
+      canvas.classList.add("unity-mobile");
+    }
+
+    loadingBar.style.display = "block";
+
+    const script = document.createElement("script");
+    script.src = loaderUrl;
+    script.onload = () => {
+      (window as any).createUnityInstance(canvas, config, (progress: number) => {
+        progressBarFull.style.width = 100 * progress + "%";
+      }).then((unityInstance: any) => {
+        loadingBar.style.display = "none";
+        if (fullscreenButton) {
+          fullscreenButton.addEventListener('click', () => {
+            unityInstance.SetFullscreen(1);
+          });
+        }
+      }).catch((message: string) => {
+        alert(message);
+      });
+    };
+
+    document.body.appendChild(script);
+  });
+</script>

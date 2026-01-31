@@ -1,0 +1,32 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const projects = [
+  {
+    name: 'Spread the Love',
+    slug: 'spread-the-love',
+    icon: '/img/app_icon 2.png'
+  },
+  {
+    name: 'ETea',
+    slug: 'etea',
+    icon: '/img/Group 2.svg'
+  }
+];
+---
+
+<BaseLayout title=" projects">
+  <div class="page-section">
+    <h1 class="text-md text-dark">projects:</h1>
+    <ul class="projects-list">
+      {projects.map((project) => (
+        <li>
+          <a href={`/projects/${project.slug}`} class="project-item">
+            <img src={project.icon} alt="" class="icon icon-sm" />
+            <span class="text-md text-muted">{project.name}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
+  </div>
+</BaseLayout>
