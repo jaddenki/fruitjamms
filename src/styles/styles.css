@@ -135,6 +135,11 @@ html {
 .logo-icon {
   width: 48px;
   height: 48px;
+  transition: transform 250ms ease-in-out;
+}
+
+.logo:hover .logo-icon {
+  transform: rotate(2deg);
 }
 
 .logo-text {
@@ -152,6 +157,7 @@ html {
 .nav-link {
   font-size: 28px;
   color: var(--text-muted);
+  transition: color 150ms ease;
 }
 
 .nav-link:hover {
@@ -195,6 +201,7 @@ html {
 .link-muted {
   font-size: 24px;
   color: var(--text-muted);
+  transition: color 150ms ease;
 }
 
 .link-muted:hover {
@@ -204,6 +211,7 @@ html {
 .link-dark {
   font-size: 24px;
   color: var(--text-dark);
+  transition: color 150ms ease;
 }
 
 .link-dark:hover {
@@ -298,11 +306,15 @@ html {
 }
 
 .project-item .icon {
-  transform: scale(1);
+  transition: transform 150ms ease-out;
 }
 
 .project-item:hover .icon {
-  transform: scale(1.2);
+  transform: scale(1.08);
+}
+
+.project-item .text-muted {
+  transition: color 150ms ease;
 }
 
 .project-item:hover .text-muted {
@@ -370,7 +382,7 @@ html {
   height: 100%;
   object-fit: cover;
   image-rendering: pixelated;
-  transform: scale(1);
+  transition: transform 150ms ease-out;
 }
 
 .avatar:hover {
@@ -385,6 +397,59 @@ html {
 .member-role {
   font-size: 22px;
   color: var(--text-muted);
+}
+
+/* ===========================================
+   Animations
+   =========================================== */
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.content {
+  animation: enter 220ms ease-out;
+}
+
+.projects-list li,
+.team-member {
+  animation: enter 200ms ease-out backwards;
+}
+
+.projects-list li:nth-child(1) { animation-delay: 60ms; }
+.projects-list li:nth-child(2) { animation-delay: 120ms; }
+.projects-list li:nth-child(3) { animation-delay: 180ms; }
+.projects-list li:nth-child(4) { animation-delay: 240ms; }
+.projects-list li:nth-child(5) { animation-delay: 300ms; }
+.projects-list li:nth-child(6) { animation-delay: 360ms; }
+
+.team-member:nth-child(1) { animation-delay: 60ms; }
+.team-member:nth-child(2) { animation-delay: 120ms; }
+.team-member:nth-child(3) { animation-delay: 180ms; }
+.team-member:nth-child(4) { animation-delay: 240ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  .content,
+  .projects-list li,
+  .team-member {
+    animation: none;
+  }
+
+  .nav-link,
+  .link-muted,
+  .link-dark,
+  .project-item .icon,
+  .project-item .text-muted,
+  .avatar,
+  .logo-icon {
+    transition: none;
+  }
 }
 
 /* ===========================================
