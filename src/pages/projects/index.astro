@@ -3,15 +3,21 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 
 const projects = [
   {
-    name: 'Spread the Love',
-    slug: 'spread-the-love',
-    icon: '/img/app_icon 2.png'
+    name: 'etea.cafe',
+    slug: 'https://etea.cafe',
+    icon: '/img/eteaca.svg'
   },
   {
-    name: 'ETea',
-    slug: 'etea',
-    icon: '/img/Group 2.svg'
+    name: 'Spread the Love',
+    slug: '/projects/spread-the-love',
+    icon: '/img/app_icon 2.png'
   }
+  // ,
+  // {
+  //   name: 'ETea',
+  //   slug: '/projects/etea',
+  //   icon: '/img/Group 2.svg'
+  // }
 ];
 ---
 
@@ -21,7 +27,7 @@ const projects = [
     <ul class="projects-list">
       {projects.map((project) => (
         <li>
-          <a href={`/projects/${project.slug}`} class="project-item">
+          <a href={`${project.slug}`} class="project-item">
             <img src={project.icon} alt="" class="icon icon-sm" />
             <span class="text-md text-muted">{project.name}</span>
           </a>
