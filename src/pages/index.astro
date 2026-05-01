@@ -1,16 +1,745 @@
 ---
-import BaseLayout from '../layouts/BaseLayout.astro';
+
 ---
 
-<BaseLayout title=" home">
-  <div class="page-section page-section--gap-lg">
-    <p class="tagline">
-      jamms is a passion-driven studio that makes the kind of stuff you didn't know you needed.
-    </p>
-    <div class="social-links">
-      <a href="https://discord.com/invite/yFTeQK7zBa" target="_blank" class="link-muted">discord</a>
-      <a href="https://www.tiktok.com/@fruit.jamms" target="_blank" class="link-muted">tiktok</a>
-      <!-- <a href="#" class="link-muted">ko.fi</a> -->
-    </div>
-  </div>
-</BaseLayout>
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="icon" type="image/png" href="/img/favicon.png" />
+        <title>jamms</title>
+        <style>
+            @font-face {
+                font-family: "Pixel Arial";
+                src: url("/fonts/pixel-arial-14.woff") format("woff");
+                font-display: swap;
+            }
+            *,
+            *::before,
+            *::after {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            html,
+            body {
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background: #fff;
+            }
+            #c {
+                display: block;
+                position: fixed;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+        <script type="importmap">
+            { "imports": { "three": "https://esm.sh/three@0.170.0" } }
+        </script>
+    </head>
+    <body>
+        <canvas id="c"></canvas>
+        <script type="module">
+            import * as THREE from "https://esm.sh/three@0.170.0";
+            import { CONFIG as TYPE_CONFIG } from "/type/config.js";
+
+            const canvas = document.getElementById("c");
+            // Fallback to screen dims if running inside a narrow iframe (e.g. preview tools)
+            let W =
+                window.innerWidth > 50
+                    ? window.innerWidth
+                    : window.screen.width;
+            let H =
+                window.innerHeight > 50
+                    ? window.innerHeight
+                    : window.screen.height;
+            const dpr = Math.min(window.devicePixelRatio, 2);
+
+            const renderer = new THREE.WebGLRenderer({
+                canvas,
+                antialias: true,
+            });
+            renderer.setSize(W, H, false);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.autoClear = false;
+
+            // ── Tweak these ────────────────────────────────────────────────────────
+            const WARP_STRENGTH = 0.014; // fluid displacement amount
+            const REVEAL_DURATION_MS = 2200;
+            const REVEAL_DELAY_MS = 300;
+            const REVEAL_SWEEP_SPEED = TYPE_CONFIG.sweepSpeed ?? 1.8;
+            const REVEAL_SWEEP_SPREAD = TYPE_CONFIG.sweepSpread ?? 1.0;
+            const REVEAL_SWEEP_OFFSET = TYPE_CONFIG.sweepOffset ?? 0.1;
+            const REVEAL_MAX_BLOCK_SIZE = TYPE_CONFIG.maxBlockSize ?? 12.0;
+            const REVEAL_MIN_BLOCK_SIZE = TYPE_CONFIG.minBlockSize ?? 1.0;
+            const REVEAL_JITTER_AMOUNT = TYPE_CONFIG.jitterAmount ?? 0.006;
+            const REVEAL_JITTER_BASE = TYPE_CONFIG.jitterBase ?? 0.0;
+            const REVEAL_JITTER_FPS = TYPE_CONFIG.jitterFPS ?? 14.0;
+            const MODEL_PIXEL_SIZE = TYPE_CONFIG.modelPixelSize ?? 6.0; // persistent final pixelation size in screen px
+            const MODEL_PINK = new THREE.Vector3().fromArray(
+                TYPE_CONFIG.modelPink ?? [1.0, 0.298, 0.612],
+            );
+
+            // ── Fluid sim constants ────────────────────────────────────────────────
+            const SIM = 128;
+            const ITERS = 25;
+            const VEL_DISS = 0.992;
+            const CURL_STR = 28;
+            const SPLAT_FORCE = 4000;
+            const SPLAT_R = 0.0022;
+
+            // ── Render targets ─────────────────────────────────────────────────────
+            const tType = THREE.HalfFloatType;
+            function mkRT(w, h, opts = {}) {
+                return new THREE.WebGLRenderTarget(w, h, {
+                    minFilter: THREE.LinearFilter,
+                    magFilter: THREE.LinearFilter,
+                    format: THREE.RGBAFormat,
+                    type: tType,
+                    depthBuffer: false,
+                    ...opts,
+                });
+            }
+            class FBO {
+                constructor(w, h) {
+                    this.r = mkRT(w, h);
+                    this.w = mkRT(w, h);
+                }
+                swap() {
+                    const t = this.r;
+                    this.r = this.w;
+                    this.w = t;
+                }
+            }
+
+            const velFBO = new FBO(SIM, SIM);
+            const presFBO = new FBO(SIM, SIM);
+            const divRT = mkRT(SIM, SIM);
+            const curlRT = mkRT(SIM, SIM);
+            const blurRT1 = mkRT(SIM, SIM);
+            const blurRT2 = mkRT(SIM, SIM);
+            const smoothVelRT1 = mkRT(SIM, SIM);
+            const smoothVelRT2 = mkRT(SIM, SIM);
+            let smoothVelCur = smoothVelRT1,
+                smoothVelNext = smoothVelRT2;
+
+            // Scene + gooey blur at 2× for SSAA; composite downsamples to W×H
+            const sceneRT = new THREE.WebGLRenderTarget(W * dpr, H * dpr, {
+                minFilter: THREE.LinearFilter,
+                magFilter: THREE.LinearFilter,
+                format: THREE.RGBAFormat,
+                type: tType,
+                depthBuffer: true,
+            });
+            const gooeyRT1 = mkRT(W * dpr, H * dpr);
+            const gooeyRT2 = mkRT(W * dpr, H * dpr);
+            // Final composite RT (gooey logo on white, before fluid displacement)
+            const compositeRT = new THREE.WebGLRenderTarget(W * dpr, H * dpr, {
+                minFilter: THREE.LinearFilter,
+                magFilter: THREE.LinearFilter,
+                format: THREE.RGBAFormat,
+                depthBuffer: false,
+            });
+
+            // ── Fullscreen quad scene (for fluid passes) ───────────────────────────
+            const fxScene = new THREE.Scene();
+            const fxCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+            const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+            fxScene.add(quad);
+
+            function runFX(mat, rt) {
+                quad.material = mat;
+                renderer.setRenderTarget(rt);
+                renderer.render(fxScene, fxCam);
+            }
+
+            const VS = `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`;
+            function mkMat(fs, uniforms) {
+                return new THREE.ShaderMaterial({
+                    vertexShader: VS,
+                    fragmentShader: "precision highp float;\n" + fs,
+                    uniforms,
+                    depthTest: false,
+                    depthWrite: false,
+                });
+            }
+
+            // ── Fluid shaders ──────────────────────────────────────────────────────
+            const advectMat = mkMat(
+                `
+uniform sampler2D uVel, uSrc; uniform float uDt, uDiss; varying vec2 vUv;
+void main(){ gl_FragColor = uDiss * texture2D(uSrc, vUv - uDt * texture2D(uVel,vUv).xy); }
+`,
+                {
+                    uVel: { value: null },
+                    uSrc: { value: null },
+                    uDt: { value: 0.016 },
+                    uDiss: { value: VEL_DISS },
+                },
+            );
+
+            const divMat = mkMat(
+                `
+uniform sampler2D uVel; uniform vec2 uT; varying vec2 vUv;
+void main(){
+  float L=texture2D(uVel,vUv-vec2(uT.x,0)).x, R=texture2D(uVel,vUv+vec2(uT.x,0)).x;
+  float B=texture2D(uVel,vUv-vec2(0,uT.y)).y, T=texture2D(uVel,vUv+vec2(0,uT.y)).y;
+  gl_FragColor=vec4(0.5*(R-L+T-B),0,0,1);
+}`,
+                {
+                    uVel: { value: null },
+                    uT: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+                },
+            );
+
+            const presMat = mkMat(
+                `
+uniform sampler2D uPres, uDiv; uniform vec2 uT; varying vec2 vUv;
+void main(){
+  float L=texture2D(uPres,vUv-vec2(uT.x,0)).x, R=texture2D(uPres,vUv+vec2(uT.x,0)).x;
+  float B=texture2D(uPres,vUv-vec2(0,uT.y)).x, T=texture2D(uPres,vUv+vec2(0,uT.y)).x;
+  gl_FragColor=vec4((L+R+B+T-texture2D(uDiv,vUv).x)*0.25,0,0,1);
+}`,
+                {
+                    uPres: { value: null },
+                    uDiv: { value: null },
+                    uT: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+                },
+            );
+
+            const gradMat = mkMat(
+                `
+uniform sampler2D uPres, uVel; uniform vec2 uT; varying vec2 vUv;
+void main(){
+  float L=texture2D(uPres,vUv-vec2(uT.x,0)).x, R=texture2D(uPres,vUv+vec2(uT.x,0)).x;
+  float B=texture2D(uPres,vUv-vec2(0,uT.y)).x, T=texture2D(uPres,vUv+vec2(0,uT.y)).x;
+  gl_FragColor=vec4(texture2D(uVel,vUv).xy - 0.5*vec2(R-L,T-B),0,1);
+}`,
+                {
+                    uPres: { value: null },
+                    uVel: { value: null },
+                    uT: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+                },
+            );
+
+            const curlMat = mkMat(
+                `
+uniform sampler2D uVel; uniform vec2 uT; varying vec2 vUv;
+void main(){
+  float L=texture2D(uVel,vUv-vec2(uT.x,0)).y, R=texture2D(uVel,vUv+vec2(uT.x,0)).y;
+  float B=texture2D(uVel,vUv-vec2(0,uT.y)).x, T=texture2D(uVel,vUv+vec2(0,uT.y)).x;
+  gl_FragColor=vec4(0.5*(R-L-T+B),0,0,1);
+}`,
+                {
+                    uVel: { value: null },
+                    uT: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+                },
+            );
+
+            const vortMat = mkMat(
+                `
+uniform sampler2D uVel, uCurlTex; uniform vec2 uT; uniform float uStr, uDt; varying vec2 vUv;
+void main(){
+  float L=abs(texture2D(uCurlTex,vUv-vec2(uT.x,0)).x), R=abs(texture2D(uCurlTex,vUv+vec2(uT.x,0)).x);
+  float B=abs(texture2D(uCurlTex,vUv-vec2(0,uT.y)).x), T=abs(texture2D(uCurlTex,vUv+vec2(0,uT.y)).x);
+  gl_FragColor=vec4(texture2D(uVel,vUv).xy + normalize(vec2(T-B,R-L)+0.0001)*uStr*texture2D(uCurlTex,vUv).x*uDt,0,1);
+}`,
+                {
+                    uVel: { value: null },
+                    uCurlTex: { value: null },
+                    uT: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+                    uStr: { value: CURL_STR },
+                    uDt: { value: 0.016 },
+                },
+            );
+
+            const splatMat = mkMat(
+                `
+uniform sampler2D uTex; uniform vec2 uPos; uniform vec3 uColor;
+uniform float uRadius, uAspect; varying vec2 vUv;
+void main(){
+  vec2 p=vUv-uPos; p.x*=uAspect;
+  gl_FragColor=vec4(texture2D(uTex,vUv).rgb + exp(-dot(p,p)/uRadius)*uColor, 1.0);
+}`,
+                {
+                    uTex: { value: null },
+                    uPos: { value: new THREE.Vector2() },
+                    uColor: { value: new THREE.Vector3() },
+                    uRadius: { value: SPLAT_R },
+                    uAspect: { value: W / H },
+                },
+            );
+
+            const clearMat = mkMat(
+                `
+uniform sampler2D uTex; uniform float uVal; varying vec2 vUv;
+void main(){ gl_FragColor=uVal*texture2D(uTex,vUv); }
+`,
+                { uTex: { value: null }, uVal: { value: 0.8 } },
+            );
+
+            const lerpMat = mkMat(
+                `
+uniform sampler2D uCur, uTarget; uniform float uAlpha; varying vec2 vUv;
+void main(){ gl_FragColor = mix(texture2D(uCur, vUv), texture2D(uTarget, vUv), uAlpha); }
+`,
+                {
+                    uCur: { value: null },
+                    uTarget: { value: null },
+                    uAlpha: { value: 0.1 },
+                },
+            );
+
+            const blurHMat = mkMat(
+                `
+uniform sampler2D uTex; uniform vec2 uTexel; varying vec2 vUv;
+void main(){
+  vec4 c=vec4(0.0);
+  float w[9]; w[0]=0.0269;w[1]=0.0654;w[2]=0.1213;w[3]=0.1747;w[4]=0.1974;
+              w[5]=0.1747;w[6]=0.1213;w[7]=0.0654;w[8]=0.0269;
+  for(int i=0;i<9;i++) c+=texture2D(uTex,vUv+vec2(float(i-4)*uTexel.x*2.0,0.0))*w[i];
+  gl_FragColor=c;
+}`,
+                {
+                    uTex: { value: null },
+                    uTexel: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+                },
+            );
+
+            const blurVMat = mkMat(
+                `
+uniform sampler2D uTex; uniform vec2 uTexel; varying vec2 vUv;
+void main(){
+  vec4 c=vec4(0.0);
+  float w[9]; w[0]=0.0269;w[1]=0.0654;w[2]=0.1213;w[3]=0.1747;w[4]=0.1974;
+              w[5]=0.1747;w[6]=0.1213;w[7]=0.0654;w[8]=0.0269;
+  for(int i=0;i<9;i++) c+=texture2D(uTex,vUv+vec2(0.0,float(i-4)*uTexel.y*2.0))*w[i];
+  gl_FragColor=c;
+}`,
+                {
+                    uTex: { value: null },
+                    uTexel: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+                },
+            );
+
+            // ── Gooey blur + composite ─────────────────────────────────────────────
+            const GOOEY_STEP = 5.0;
+            const gooeyBlurHMat = mkMat(
+                `
+uniform sampler2D uTex; uniform vec2 uTexel; varying vec2 vUv;
+void main(){
+  vec4 c=vec4(0.0);
+  float w[9]; w[0]=0.0269;w[1]=0.0654;w[2]=0.1213;w[3]=0.1747;w[4]=0.1974;
+              w[5]=0.1747;w[6]=0.1213;w[7]=0.0654;w[8]=0.0269;
+  for(int i=0;i<9;i++) c+=texture2D(uTex,vUv+vec2(float(i-4)*uTexel.x,0.0))*w[i];
+  gl_FragColor=c;
+}`,
+                {
+                    uTex: { value: null },
+                    uTexel: {
+                        value: new THREE.Vector2(GOOEY_STEP / (W * dpr), 0),
+                    },
+                },
+            );
+
+            const gooeyBlurVMat = mkMat(
+                `
+uniform sampler2D uTex; uniform vec2 uTexel; varying vec2 vUv;
+void main(){
+  vec4 c=vec4(0.0);
+  float w[9]; w[0]=0.0269;w[1]=0.0654;w[2]=0.1213;w[3]=0.1747;w[4]=0.1974;
+              w[5]=0.1747;w[6]=0.1213;w[7]=0.0654;w[8]=0.0269;
+  for(int i=0;i<9;i++) c+=texture2D(uTex,vUv+vec2(0.0,float(i-4)*uTexel.y))*w[i];
+  gl_FragColor=c;
+}`,
+                {
+                    uTex: { value: null },
+                    uTexel: {
+                        value: new THREE.Vector2(0, GOOEY_STEP / (H * dpr)),
+                    },
+                },
+            );
+
+            const gooeyCmpMat = mkMat(
+                `
+uniform sampler2D uBlurred; varying vec2 vUv;
+void main(){
+  float a = texture2D(uBlurred, vUv).a;
+  float gooey = smoothstep(0.44, 0.52, a);
+  vec3 fgCol = vec3(1.0, 0.298, 0.612);
+  vec3 col = mix(vec3(1.0), fgCol, gooey);
+  gl_FragColor = vec4(col, 1.0);
+}`,
+                { uBlurred: { value: null } },
+            );
+
+            // ── Display: pixelate + fluid warp ────────────────────────────────────
+            const displayMat = mkMat(
+                `
+uniform sampler2D uScene, uVelBlur;
+uniform float uDisplace;
+uniform float uProgress;
+uniform float uTime;
+uniform vec2 uResolution;
+uniform float uMaxBlockSize;
+uniform float uMinBlockSize;
+uniform float uSweepSpeed;
+uniform float uSweepSpread;
+uniform float uSweepOffset;
+uniform float uJitterAmount;
+uniform float uJitterBase;
+uniform float uJitterFPS;
+uniform float uPixelSize;
+uniform vec3 uPink;
+varying vec2 vUv;
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+
+vec2 hash2(vec2 p) {
+  return vec2(
+    fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123),
+    fract(sin(dot(p, vec2(269.5, 183.3))) * 43758.5453123)
+  );
+}
+
+void main(){
+  vec2 fragCoord = vUv * uResolution;
+  float wave = uProgress * uSweepSpeed - vUv.x * uSweepSpread - uSweepOffset;
+  float localProgress = clamp(wave, 0.0, 1.0);
+  localProgress = localProgress * localProgress * (3.0 - 2.0 * localProgress);
+
+  float minBlock = max(uMinBlockSize, 1.0);
+  float blockPx = mix(uMaxBlockSize, minBlock, localProgress * localProgress);
+  blockPx = max(floor(blockPx + 0.5), minBlock);
+
+  vec2 block = floor(fragCoord / blockPx) * blockPx;
+  vec2 blockUV = (block + blockPx * 0.5) / uResolution;
+
+  float noise = hash(block / uMaxBlockSize);
+  float visible = step(noise, localProgress);
+
+  float jitterAmt = uJitterAmount * (1.0 - localProgress * localProgress) + uJitterBase;
+  float timeSeed = floor(uTime * uJitterFPS);
+  vec2 jitter = (hash2(block + timeSeed) - 0.5) * jitterAmt;
+  vec2 sampleUV = clamp(blockUV + jitter, 0.0, 1.0);
+
+  vec2 vel = texture2D(uVelBlur, vUv).xy;
+  float mag = length(vel);
+  float mask = 1.0 - exp(-mag * 25.0);
+  // Order: warp first, then pixelate the warped output.
+  vec2 warpedUV = clamp(sampleUV + vel * uDisplace * mask, 0.0, 1.0);
+  float px = max(uPixelSize, 1.0);
+  vec2 pixelCoord = floor((warpedUV * uResolution) / px) * px + px * 0.5;
+  vec2 pixelUV = clamp(pixelCoord / uResolution, 0.0, 1.0);
+  vec4 sceneColor = texture2D(uScene, pixelUV);
+
+  // Strict binary posterization: either white (0) or pink (1).
+  float denom = max(distance(vec3(1.0), uPink), 0.0001);
+  float pinkness = 1.0 - distance(sceneColor.rgb, uPink) / denom;
+  float pinkBit = step(0.5, clamp(pinkness, 0.0, 1.0));
+  sceneColor.rgb = mix(vec3(1.0), uPink, pinkBit);
+  gl_FragColor = mix(vec4(1.0), sceneColor, visible);
+}`,
+                {
+                    uScene: { value: compositeRT.texture },
+                    uVelBlur: { value: null },
+                    uDisplace: { value: WARP_STRENGTH },
+                    uProgress: { value: 0.0 },
+                    uTime: { value: 0.0 },
+                    uResolution: { value: new THREE.Vector2(W * dpr, H * dpr) },
+                    uMaxBlockSize: { value: REVEAL_MAX_BLOCK_SIZE },
+                    uMinBlockSize: { value: REVEAL_MIN_BLOCK_SIZE },
+                    uSweepSpeed: { value: REVEAL_SWEEP_SPEED },
+                    uSweepSpread: { value: REVEAL_SWEEP_SPREAD },
+                    uSweepOffset: { value: REVEAL_SWEEP_OFFSET },
+                    uJitterAmount: { value: REVEAL_JITTER_AMOUNT },
+                    uJitterBase: { value: REVEAL_JITTER_BASE },
+                    uJitterFPS: { value: REVEAL_JITTER_FPS },
+                    uPixelSize: { value: MODEL_PIXEL_SIZE },
+                    uPink: { value: MODEL_PINK },
+                },
+            );
+
+            // ── 3D scene setup ─────────────────────────────────────────────────────
+            const mainScene = new THREE.Scene();
+            // no background — transparent so gooey blur can threshold the alpha
+
+            const mainCam = new THREE.PerspectiveCamera(42, W / H, 0.1, 500);
+
+            const BASE_SCALE = 0.025; // logo size relative to geometry (tune smaller = tinier)
+
+            function fitCamera() {
+                // Fixed camera distance — model size is controlled by BASE_SCALE alone
+                mainCam.position.z = 6.0;
+                mainCam.updateProjectionMatrix();
+            }
+            fitCamera();
+
+            // ── Extruded SVG geometry ──────────────────────────────────────────────
+            // SVG rects: [x, y] in 0-28 viewBox space, each 4.66667 × 4.66667
+            const SVG_RECTS = [
+                [0, 23.2885],
+                [4.66663, 18.6218],
+                [9.33337, 18.6218],
+                [14, 18.6218],
+                [18.6218, 18.6218],
+                [23.3334, 23.3334],
+                [23.3334, 9.33337],
+                [23.3334, 13.9103],
+                [0, 9.33337],
+                [0, 13.9103],
+                [4.66663, 4.66663],
+                [4.66663, 0],
+                [9.33337, 4.71155],
+                [14, 4.66663],
+                [18.6218, 4.66663],
+                [18.6218, 0],
+            ];
+
+            const SZ = 4.66667;
+            const shapes = SVG_RECTS.map(([rx, ry]) => {
+                // Center at origin and flip Y (SVG y-down → Three.js y-up)
+                const x0 = rx - 14,
+                    x1 = rx + SZ - 14;
+                const y0 = 14 - ry,
+                    y1 = 14 - ry - SZ;
+                const s = new THREE.Shape();
+                s.moveTo(x0, y0);
+                s.lineTo(x1, y0);
+                s.lineTo(x1, y1);
+                s.lineTo(x0, y1);
+                s.closePath();
+                return s;
+            });
+
+            const extrudeGeo = new THREE.ExtrudeGeometry(shapes, {
+                depth: 3.5,
+                bevelEnabled: true,
+                bevelThickness: 0.55,
+                bevelSize: 0.45,
+                bevelSegments: 4,
+            });
+            // Center the extrusion depth (so it spins around its own center)
+            extrudeGeo.translate(0, 0, -1.75);
+
+            const logoMat = new THREE.MeshBasicMaterial({ color: 0xff4c9c });
+
+            const logoMesh = new THREE.Mesh(extrudeGeo, logoMat);
+            mainScene.add(logoMesh);
+
+            // ── Fluid helpers ──────────────────────────────────────────────────────
+            function splat(x, y, fx, fy) {
+                splatMat.uniforms.uTex.value = velFBO.r.texture;
+                splatMat.uniforms.uPos.value.set(x, y);
+                splatMat.uniforms.uColor.value.set(fx, fy, 0);
+                splatMat.uniforms.uRadius.value = SPLAT_R;
+                runFX(splatMat, velFBO.w);
+                velFBO.swap();
+            }
+
+            const ptr = { x: 0.5, y: 0.5, px: 0.5, py: 0.5, moved: false };
+            window.addEventListener("mousemove", (e) => {
+                const r = canvas.getBoundingClientRect();
+                ptr.x = (e.clientX - r.left) / r.width;
+                ptr.y = 1 - (e.clientY - r.top) / r.height;
+                ptr.moved = true;
+            });
+            window.addEventListener(
+                "touchmove",
+                (e) => {
+                    e.preventDefault();
+                    const r = canvas.getBoundingClientRect();
+                    ptr.x = (e.touches[0].clientX - r.left) / r.width;
+                    ptr.y = 1 - (e.touches[0].clientY - r.top) / r.height;
+                    ptr.moved = true;
+                },
+                { passive: false },
+            );
+
+            function seed() {
+                [
+                    [0.3, 0.45, 0.3, 0.1],
+                    [0.7, 0.55, -0.3, 0.08],
+                    [0.5, 0.72, 0.08, -0.3],
+                    [0.5, 0.28, -0.08, 0.3],
+                ].forEach(([x, y, fx, fy]) => {
+                    splat(
+                        x,
+                        y,
+                        fx * SPLAT_FORCE * 0.04,
+                        fy * SPLAT_FORCE * 0.04,
+                    );
+                });
+            }
+
+            // ── Render loop ────────────────────────────────────────────────────────
+            let rotT = 0; // linear 0→1 per revolution, mapped through ease-in-out
+            let last = performance.now(),
+                frame = 0;
+            let revealStart = performance.now() + REVEAL_DELAY_MS;
+
+            function easeOutCubic(t) {
+                return 1 - Math.pow(1 - t, 3);
+            }
+
+            function tick(now) {
+                requestAnimationFrame(tick);
+                const dt = Math.min((now - last) / 1000, 0.033);
+                last = now;
+                frame++;
+                const revealRawT = Math.min(
+                    Math.max((now - revealStart) / REVEAL_DURATION_MS, 0),
+                    1,
+                );
+                displayMat.uniforms.uProgress.value = easeOutCubic(revealRawT);
+                displayMat.uniforms.uTime.value = now * 0.001;
+
+                // Ease-in-out every 180° — rotT goes 0→2 per full revolution
+                rotT = (rotT + 0.0024) % 2;
+                const halfEased = -(Math.cos(Math.PI * (rotT % 1)) - 1) / 2;
+                logoMesh.rotation.y = (Math.floor(rotT) + halfEased) * Math.PI;
+                logoMesh.rotation.x = 0.18 + Math.sin(frame * 0.004) * 0.12;
+                const jt = frame * 0.022;
+                const jiggleAmp = BASE_SCALE * 2.0;
+                logoMesh.position.y =
+                    Math.sin(jt) * jiggleAmp +
+                    Math.sin(jt * 1.7) * jiggleAmp * 0.33;
+                logoMesh.position.x = Math.sin(jt * 0.63) * jiggleAmp * 0.49;
+                const pulse = 1.0 + Math.sin(jt * 1.1) * 0.012;
+                logoMesh.scale.setScalar(BASE_SCALE * pulse);
+
+                // Ambient fluid splats
+                if (frame % 80 === 0) {
+                    const t = frame * 0.009;
+                    splat(
+                        0.5 + 0.3 * Math.cos(t),
+                        0.5 + 0.3 * Math.sin(t * 0.73),
+                        Math.sin(t * 1.4) * SPLAT_FORCE * 0.018,
+                        Math.cos(t) * SPLAT_FORCE * 0.018,
+                    );
+                }
+
+                if (ptr.moved) {
+                    const dx = ptr.x - ptr.px,
+                        dy = ptr.y - ptr.py;
+                    if (Math.sqrt(dx * dx + dy * dy) > 0.0005)
+                        splat(ptr.x, ptr.y, dx * SPLAT_FORCE, dy * SPLAT_FORCE);
+                    ptr.px = ptr.x;
+                    ptr.py = ptr.y;
+                    ptr.moved = false;
+                }
+
+                // ── Fluid simulation ─────────────────────────────────────────────────
+                advectMat.uniforms.uVel.value = advectMat.uniforms.uSrc.value =
+                    velFBO.r.texture;
+                advectMat.uniforms.uDt.value = dt;
+                advectMat.uniforms.uDiss.value = VEL_DISS;
+                runFX(advectMat, velFBO.w);
+                velFBO.swap();
+
+                curlMat.uniforms.uVel.value = velFBO.r.texture;
+                runFX(curlMat, curlRT);
+
+                vortMat.uniforms.uVel.value = velFBO.r.texture;
+                vortMat.uniforms.uCurlTex.value = curlRT.texture;
+                vortMat.uniforms.uDt.value = dt;
+                runFX(vortMat, velFBO.w);
+                velFBO.swap();
+
+                divMat.uniforms.uVel.value = velFBO.r.texture;
+                runFX(divMat, divRT);
+
+                clearMat.uniforms.uTex.value = presFBO.r.texture;
+                runFX(clearMat, presFBO.w);
+                presFBO.swap();
+
+                for (let i = 0; i < ITERS; i++) {
+                    presMat.uniforms.uPres.value = presFBO.r.texture;
+                    presMat.uniforms.uDiv.value = divRT.texture;
+                    runFX(presMat, presFBO.w);
+                    presFBO.swap();
+                }
+
+                gradMat.uniforms.uPres.value = presFBO.r.texture;
+                gradMat.uniforms.uVel.value = velFBO.r.texture;
+                runFX(gradMat, velFBO.w);
+                velFBO.swap();
+
+                // Temporal smoothing on velocity (lerp toward current vel at 10% per frame)
+                lerpMat.uniforms.uCur.value = smoothVelCur.texture;
+                lerpMat.uniforms.uTarget.value = velFBO.r.texture;
+                runFX(lerpMat, smoothVelNext);
+                const tmp = smoothVelCur;
+                smoothVelCur = smoothVelNext;
+                smoothVelNext = tmp;
+
+                // Blur smoothed velocity for soft displacement
+                blurHMat.uniforms.uTex.value = smoothVelCur.texture;
+                runFX(blurHMat, blurRT1);
+                blurVMat.uniforms.uTex.value = blurRT1.texture;
+                runFX(blurVMat, blurRT2);
+                blurHMat.uniforms.uTex.value = blurRT2.texture;
+                runFX(blurHMat, blurRT1);
+                blurVMat.uniforms.uTex.value = blurRT1.texture;
+                runFX(blurVMat, blurRT2);
+
+                // ── Render 3D scene → sceneRT (transparent bg) ───────────────────────
+                renderer.setRenderTarget(sceneRT);
+                renderer.setClearColor(0x000000, 0);
+                renderer.clear(true, true, true);
+                renderer.render(mainScene, mainCam);
+
+                // ── Gooey: blur alpha then threshold → compositeRT ────────────────────
+                gooeyBlurHMat.uniforms.uTex.value = sceneRT.texture;
+                runFX(gooeyBlurHMat, gooeyRT1);
+                gooeyBlurVMat.uniforms.uTex.value = gooeyRT1.texture;
+                runFX(gooeyBlurVMat, gooeyRT2);
+                gooeyBlurHMat.uniforms.uTex.value = gooeyRT2.texture;
+                runFX(gooeyBlurHMat, gooeyRT1);
+                gooeyBlurVMat.uniforms.uTex.value = gooeyRT1.texture;
+                runFX(gooeyBlurVMat, gooeyRT2);
+                gooeyCmpMat.uniforms.uBlurred.value = gooeyRT2.texture;
+                runFX(gooeyCmpMat, compositeRT);
+
+                // ── Display: compositeRT warped by fluid ──────────────────────────────
+                displayMat.uniforms.uVelBlur.value = blurRT2.texture;
+                quad.material = displayMat;
+                renderer.setRenderTarget(null);
+                renderer.setClearColor(0xffffff, 1);
+                renderer.clear(true, true, true);
+                renderer.render(fxScene, fxCam);
+            }
+
+            seed();
+            requestAnimationFrame(tick);
+
+            window.addEventListener("resize", () => {
+                W = window.innerWidth;
+                H = window.innerHeight;
+                renderer.setSize(W, H, false);
+                sceneRT.setSize(W * dpr, H * dpr);
+                gooeyRT1.setSize(W * dpr, H * dpr);
+                gooeyRT2.setSize(W * dpr, H * dpr);
+                compositeRT.setSize(W * dpr, H * dpr);
+                displayMat.uniforms.uResolution.value.set(W * dpr, H * dpr);
+                gooeyBlurHMat.uniforms.uTexel.value.set(
+                    GOOEY_STEP / (W * dpr),
+                    0,
+                );
+                gooeyBlurVMat.uniforms.uTexel.value.set(
+                    0,
+                    GOOEY_STEP / (H * dpr),
+                );
+                mainCam.aspect = W / H;
+                fitCamera();
+                splatMat.uniforms.uAspect.value = W / H;
+            });
+        </script>
+    </body>
+</html>
