@@ -1,331 +1,531 @@
 ---
+const P = 13; // pixels per cell
+
+// Edit this grid to reshape the mascot.
+// Each row is a string of 10 chars: 'X' = filled, '.' = empty.
+const mascotGrid = [
+    ".X..X.....", // row 0  antennae
+    ".XXXX.....", // row 1  head
+    "X....X....", // row 2  full
+    "X....X....", // row 3  body (window sides)
+    ".XXXX.....", // row 4  body (window sides)
+    "X....X....", // row 5  body (window sides)
+    "..........", // row 6  lower body
+    "..........", // row 7  base
+    "..........", // row 8  feet
+];
+
+function gridToRects(grid: string[], p: number): string {
+    return grid
+        .flatMap((row, r) =>
+            [...row].flatMap((cell, c) =>
+                cell === "X"
+                    ? [
+                          `<rect x="${c * p}" y="${r * p}" width="${p}" height="${p}"/>`,
+                      ]
+                    : [],
+            ),
+        )
+        .join("\n        ");
+}
+
+const mascotRects = gridToRects(mascotGrid, P);
+const mascotW = mascotGrid[0].length * P;
+const mascotH = mascotGrid.length * P;
 ---
+
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="icon" type="image/png" href="/img/favicon.png" />
-  <title>jamms</title>
-  <style>
-    @font-face {
-      font-family: 'Pixel Arial';
-      src: url('/fonts/pixel-arial-14.woff') format('woff');
-      font-display: swap;
-    }
-    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
-    :root {
-      --frame: 14px;
-      --frame-radius: 30px;
-      --panel-w: 290px;
-    }
-    html, body {
-      width: 100%; height: 100%;
-      overflow: hidden;
-      background: #ffffff;
-      font-family: 'Pixel Arial', monospace;
-    }
-    /* Subtle grain overlay on body */
-    body::after {
-      content: '';
-      position: fixed;
-      inset: 0;
-      pointer-events: none;
-      z-index: 200;
-      opacity: 0.055;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-      background-size: 128px 128px;
-    }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link rel="icon" type="image/png" href="/img/favicon.png" />
+        <title>jamms</title>
+        <script type="importmap" is:inline>
+            { "imports": { "three": "https://esm.sh/three@0.170.0" } }
+        </script>
+        <style>
+            @font-face {
+                font-family: "Authentic Sans";
+                src: url("/fonts/authentic-sans-60.otf") format("opentype");
+                font-weight: normal;
+                font-display: swap;
+            }
+            @font-face {
+                font-family: "Authentic Sans";
+                src: url("/fonts/authentic-sans-90.otf") format("opentype");
+                font-weight: bold;
+                font-display: swap;
+            }
+            *,
+            *::before,
+            *::after {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            :root {
+                --frame: 14px;
+                --frame-radius: 0px;
+                --panel-w: 240px;
+            }
+            html,
+            body {
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background: #ffffff;
+                font-family: "Authentic Sans", sans-serif;
+                letter-spacing: -0.05em;
+            }
+            ::selection {
+                background: #ff28a8;
+                color: #ffffff;
+            }
+            /* Subtle grain overlay on body */
+            body::after {
+                content: "";
+                position: fixed;
+                inset: 0;
+                pointer-events: none;
+                z-index: 200;
+                opacity: 0.055;
+                background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+                background-size: 128px 128px;
+            }
 
-    /* ── White frame + black stage ──────────────────────────── */
-    #stage {
-      position: fixed;
-      inset: var(--frame);
-      background: #050005;
-      border-radius: var(--frame-radius);
-      z-index: 0;
-      cursor: crosshair;
-    }
+            /* ── Fluid background canvas ────────────────────────────── */
+            #fluid-bg {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                display: block;
+            }
 
-    /* ── Wordmark ───────────────────────────────────────────── */
-    #wordmark {
-      position: fixed;
-      top: calc(var(--frame) + 18px);
-      left: calc(var(--frame) + 18px);
-      font-size: 13px;
-      color: #f5f0f5;
-      background: #0d080d;
-      border: 1px solid #1e141e;
-      padding: 6px 14px;
-      border-radius: 9px;
-      text-decoration: none;
-      z-index: 100;
-      letter-spacing: 0.04em;
-    }
+            /* ── White frame + black stage ──────────────────────────── */
+            #stage {
+                position: fixed;
+                inset: var(--frame);
+                background: #050005;
+                border-radius: var(--frame-radius);
+                z-index: 0;
+                cursor: default;
+            }
 
-    /* ── Scene (crosses + mascot, clipped to the stage) ─────── */
-    #scene {
-      position: fixed;
-      inset: var(--frame);
-      border-radius: var(--frame-radius);
-      overflow: hidden;
-      pointer-events: none;
-      z-index: 1;
-    }
-    .cross-wrap {
-      position: absolute;
-      will-change: transform;
-    }
-    #mascot {
-      position: absolute;
-      bottom: -4px;
-      left: 28px;
-    }
+            /* ── Wordmark ───────────────────────────────────────────── */
+            #wordmark {
+                position: fixed;
+                top: calc(var(--frame) + 18px);
+                left: calc(var(--frame) + 18px);
+                font-size: 14px;
+                font-weight: bold;
+                color: #ffffff;
+                background: #ff28a8;
+                border: 1px solid #ff28a8;
+                padding: 6px 14px;
+                border-radius: 0;
+                text-decoration: none;
+                z-index: 100;
+                letter-spacing: 0.04em;
+                transition: transform 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+            }
+            @media (hover: hover) and (pointer: fine) {
+                #wordmark:hover {
+                    transform: scale(1.06) rotate(-1.5deg);
+                }
+            }
+            #wordmark:active {
+                transform: scale(0.95) rotate(0deg);
+                transition: transform 0.1s ease-out;
+            }
 
-    /* ── Footer tagline ─────────────────────────────────────── */
-    #tagline {
-      position: fixed;
-      bottom: calc(var(--frame) + 22px);
-      right: calc(var(--frame) + 22px);
-      text-align: right;
-      font-size: 10px;
-      line-height: 1.8;
-      color: #8a7d8a;
-      z-index: 10;
-      letter-spacing: 0.03em;
-      pointer-events: none;
-    }
+            /* ── Scene (crosses + mascot, clipped to the stage) ─────── */
+            #scene {
+                position: fixed;
+                inset: var(--frame);
+                border-radius: var(--frame-radius);
+                overflow: hidden;
+                pointer-events: none;
+                z-index: 1;
+            }
+            .cross-wrap {
+                position: absolute;
+                will-change: transform;
+            }
+            #mascot {
+                position: absolute;
+                bottom: 28px;
+                left: 28px;
+            }
 
-    /* ── Nav pill (morphs into panel) ───────────────────────── */
-    #nav-pill {
-      position: fixed;
-      bottom: -16px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 290px;
-      height: 56px;
-      background: #ffffff;
-      border-radius: 28px;
-      cursor: pointer;
-      z-index: 50;
-      overflow: hidden;
-      border: none;
-      outline: none;
-      transition: box-shadow 0.3s ease;
-    }
-    #nav-pill.is-open {
-      box-shadow: 0 8px 60px rgba(0,0,0,0.5);
-      cursor: default;
-    }
+            /* ── Footer tagline ─────────────────────────────────────── */
+            #tagline {
+                position: fixed;
+                bottom: calc(var(--frame) + 22px);
+                right: calc(var(--frame) + 22px);
+                text-align: right;
+                font-size: 14px;
+                line-height: 1.8;
+                color: rgba(255, 255, 255, 0.4);
+                z-index: 10;
+                letter-spacing: 0.03em;
+                pointer-events: none;
+            }
 
-    /* pill hover nudge */
-    #nav-pill:not(.is-open):hover {
-      transform: translateX(-50%) translateY(-4px);
-      transition: transform 0.2s ease-out;
-    }
+            /* ── Nav pill (morphs into panel) ───────────────────────── */
+            #nav-pill {
+                position: fixed;
+                bottom: -16px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: var(--panel-w);
+                height: 56px;
+                background: #ff28a8;
+                border-radius: 0;
+                cursor: pointer;
+                z-index: 50;
+                overflow: hidden;
+                border: none;
+                outline: none;
+            }
+            #nav-pill.is-open {
+                cursor: default;
+            }
 
-    /* ── Pill icon (visible in closed state) ────────────────── */
-    #pill-icon {
-      position: absolute;
-      bottom: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      pointer-events: none;
-    }
+            /* pill hover nudge — springy bounce up */
+            #nav-pill:not(.is-open) {
+                transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            }
+            #nav-pill:not(.is-open):hover {
+                transform: translateX(-50%) translateY(-10px) scale(1.04);
+            }
+            #nav-pill:not(.is-open):active {
+                transform: translateX(-50%) translateY(-4px) scale(0.97);
+                transition: transform 0.12s ease-out;
+            }
 
-    /* ── Menu panel (shown after morph) ─────────────────────── */
-    #menu-panel {
-      position: absolute;
-      inset: 0;
-      background: #f8f4f8;
-      opacity: 0;
-      pointer-events: none;
-      border-radius: inherit;
-      overflow: hidden;
-    }
-    /* speckle noise on the panel surface */
-    #menu-panel::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      opacity: 0.22;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-      background-size: 180px 180px;
-      mix-blend-mode: multiply;
-    }
+            /* ── Pill icon (visible in closed state) ────────────────── */
+            #pill-icon {
+                position: absolute;
+                bottom: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                pointer-events: none;
+            }
 
-    #work-grid {
-      position: absolute;
-      inset: 0;
-      overflow-y: auto;
-      padding: 28px 24px 70px 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-      scrollbar-width: none;
-    }
-    #work-grid::-webkit-scrollbar { display: none; }
+            /* ── Menu panel (shown after morph) ─────────────────────── */
+            #menu-panel {
+                position: absolute;
+                inset: 0;
+                background: #ffffff;
+                opacity: 0;
+                pointer-events: none;
+                border-radius: inherit;
+                overflow: hidden;
+            }
 
-    .work-item {
-      display: block;
-      text-decoration: none;
-      color: inherit;
-      cursor: default;
-      flex-shrink: 0;
-    }
-    a.work-item { cursor: pointer; }
-    a.work-item:hover .work-card {
-      filter: brightness(0.95);
-      transition: filter 0.15s;
-    }
-    a.work-item:hover .work-label { color: #1a0a1a; }
-    .work-label {
-      font-size: 12px;
-      letter-spacing: 0.04em;
-      color: #2a1a2a;
-      margin-bottom: 10px;
-    }
-    .work-card {
-      width: 100%;
-      height: 200px;
-      background: #dcd8dc;
-      border-radius: 16px;
-    }
-    /* etea card: gray washing into pink at the bottom */
-    .work-item:nth-child(4) .work-card {
-      background: linear-gradient(180deg, #dcd8dc 35%, #ecd0e0 100%);
-    }
+            #panel-tagline {
+                font-size: 14px;
+                line-height: 1.5;
+                letter-spacing: -0.05em;
+                color: #000000;
+                flex-shrink: 0;
+                padding: 16px 0 8px;
+            }
 
-    /* ── Side tabs: vertical rail protruding from panel left ── */
-    #side-tabs {
-      position: fixed;
-      left: calc(50% - var(--panel-w) / 2 - 46px);
-      bottom: 41vh;
-      transform: translateY(50%);
-      width: 46px;
-      background: #f8f4f8;
-      border-radius: 18px 0 0 18px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 22px 0;
-      gap: 8px;
-      z-index: 49;
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-    }
-    /* inverse fillets where the tab meets the panel edge */
-    #side-tabs::before, #side-tabs::after {
-      content: '';
-      position: absolute;
-      right: 0;
-      width: 18px;
-      height: 18px;
-    }
-    #side-tabs::before {
-      top: -18px;
-      background: radial-gradient(circle 18px at 0 0, transparent 17.5px, #f8f4f8 18px);
-    }
-    #side-tabs::after {
-      bottom: -18px;
-      background: radial-gradient(circle 18px at 0 100%, transparent 17.5px, #f8f4f8 18px);
-    }
-    .tab-btn {
-      writing-mode: vertical-rl;
-      transform: rotate(180deg);
-      font-family: 'Pixel Arial', monospace;
-      font-size: 11px;
-      letter-spacing: 0.08em;
-      color: #a090a0;
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 12px 14px;
-      transition: color 0.15s;
-      text-transform: lowercase;
-    }
-    .tab-btn.active { color: #ff28a8; }
-    .tab-btn:hover:not(.active) { color: #5a455a; }
+            #work-grid {
+                position: absolute;
+                top: 44px;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                overflow-y: auto;
+                padding: 12px 20px 40px 20px;
+                display: flex;
+                flex-direction: column;
+                gap: 24px;
+                scrollbar-width: none;
+            }
+            #work-grid::-webkit-scrollbar {
+                display: none;
+            }
 
-    /* ── Scroll pill: white bar on the black, right of panel ── */
-    #scroll-rail {
-      position: fixed;
-      left: calc(50% + var(--panel-w) / 2 + 18px);
-      bottom: 10vh;
-      height: 62vh;
-      width: 8px;
-      border-radius: 4px;
-      background: rgba(255,255,255,0.1);
-      z-index: 49;
-      opacity: 0;
-      visibility: hidden;
-      pointer-events: none;
-    }
-    #scroll-thumb {
-      position: absolute;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 30%;
-      border-radius: 4px;
-      background: #ffffff;
-    }
+            .work-item {
+                display: block;
+                text-decoration: none;
+                color: inherit;
+                cursor: default;
+                flex-shrink: 0;
+            }
+            a.work-item {
+                cursor: pointer;
+            }
+            a.work-item .work-card {
+                transition:
+                    transform 0.35s cubic-bezier(0.23, 1, 0.32, 1),
+                    filter 0.15s;
+            }
+            a.work-item:hover .work-card {
+                transform: scale(0.97) translateY(-3px);
+                filter: brightness(0.92);
+            }
+            a.work-item:active .work-card {
+                transform: scale(0.95);
+                transition:
+                    transform 0.1s ease-out,
+                    filter 0.1s;
+            }
+            a.work-item:hover .work-label {
+                color: #ff28a8;
+            }
+            .work-label {
+                font-size: 14px;
+                letter-spacing: -0.05em;
+                color: #000000;
+                margin-bottom: 10px;
+            }
+            .work-card {
+                width: 100%;
+                aspect-ratio: 16 / 9;
+                background: #000000;
+                border-radius: 0;
+            }
+            /* etea card: gray washing into pink at the bottom */
+            .work-item:nth-child(4) .work-card {
+                background: linear-gradient(180deg, #000000 35%, #ff28a8 100%);
+            }
 
-    /* Close chevron */
-    #close-btn {
-      position: absolute;
-      bottom: 12px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 8px 16px;
-      z-index: 10;
-      line-height: 0;
-      opacity: 0.7;
-      transition: opacity 0.15s;
-    }
-    #close-btn:hover { opacity: 1; }
+            /* ── Tabs: horizontal bar at the top of the panel ── */
+            #side-tabs {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                background: #ff28a8;
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                justify-content: center;
+                padding: 0;
+                gap: 0;
+                z-index: 51;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+            }
+            .tab-btn {
+                writing-mode: horizontal-tb;
+                transform: none;
+                font-family: "Authentic Sans", sans-serif;
+                font-weight: bold;
+                font-size: 14px;
+                letter-spacing: -0.05em;
+                color: rgba(255, 255, 255, 0.5);
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 14px 18px;
+                transition:
+                    color 0.15s,
+                    transform 0.18s cubic-bezier(0.23, 1, 0.32, 1);
+                text-transform: lowercase;
+            }
+            .tab-btn.active {
+                color: #ffffff;
+            }
+            .tab-btn:hover:not(.active) {
+                color: #ffffff;
+                transform: scale(1.08);
+            }
+            .tab-btn:active {
+                transform: scale(0.94);
+                transition: transform 0.1s ease-out;
+            }
 
-    /* blur+choke lives in each SVG's own filter — no CSS needed */
+            /* ── Team panel ─────────────────────────────────────────── */
+            #team-panel {
+                display: none;
+                position: absolute;
+                top: 44px;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                padding: 16px 20px 40px 20px;
+                flex-direction: column;
+                overflow-y: auto;
+                scrollbar-width: none;
+            }
+            #team-panel::-webkit-scrollbar {
+                display: none;
+            }
+            #team-panel.visible {
+                display: flex;
+            }
 
-    /* Float keyframes for scene crosses */
-    @keyframes float-a {
-      0%,100% { transform: translateY(0); }
-      50% { transform: translateY(-10px); }
-    }
-    @keyframes float-b {
-      0%,100% { transform: translateY(0); }
-      50% { transform: translateY(-8px); }
-    }
-    @keyframes float-c {
-      0%,100% { transform: translateY(0); }
-      50% { transform: translateY(-12px); }
-    }
-    @keyframes float-d {
-      0%,100% { transform: translateY(0); }
-      50% { transform: translateY(-7px); }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .cross-wrap { animation: none !important; }
-    }
-  </style>
-</head>
-<body>
+            #team-blurb {
+                font-size: 14px;
+                line-height: 1.5;
+                letter-spacing: -0.05em;
+                color: #000000;
+                padding: 12px 0 4px;
+            }
+            #team-contact {
+                font-size: 14px;
+                font-weight: normal;
+                letter-spacing: -0.05em;
+                color: #000000;
+                text-decoration: none;
+                transition: color 0.12s ease-out;
+            }
+            #team-contact:hover { color: #ff28a8; }
+            .team-row {
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                padding: 12px 0;
+                border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+                text-decoration: none;
+                color: inherit;
+                cursor: pointer;
+                transition: transform 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+            }
+            .team-row:hover {
+                transform: translateX(6px);
+            }
+            .team-row:active {
+                transform: translateX(3px) scale(0.98);
+                transition: transform 0.1s ease-out;
+            }
+            .team-row:first-child {
+                border-top: 1px solid rgba(0, 0, 0, 0.08);
+            }
+            .team-name {
+                font-size: 14px;
+                font-weight: bold;
+                color: #000000;
+                letter-spacing: -0.05em;
+                transition: color 0.12s ease-out;
+            }
+            .team-row:hover .team-name {
+                color: #ff28a8;
+            }
+            .team-role {
+                font-size: 14px;
+                color: rgba(0, 0, 0, 0.4);
+                letter-spacing: -0.05em;
+                transition: color 0.12s ease-out;
+            }
+            .team-row:hover .team-role {
+                color: #ff28a8;
+            }
 
-<!-- Black stage inside the white frame (also the click target for spawning pixels) -->
-<div id="stage" aria-hidden="true"></div>
+            /* ── Floating member preview image ─────────────────────── */
+            #member-preview {
+                position: fixed;
+                pointer-events: none;
+                z-index: 300;
+                opacity: 0;
+                width: 120px;
+                height: 120px;
+                transform-origin: right center;
+            }
+            #member-preview img {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+            }
 
-<!-- Wordmark chip -->
-<a href="/" id="wordmark">jamms</a>
+            /* ── Scroll pill: white bar on the black, right of panel ── */
+            #scroll-rail {
+                position: fixed;
+                left: calc(50% + var(--panel-w) / 2 + 18px);
+                bottom: 10vh;
+                height: 62vh;
+                width: 8px;
+                border-radius: 0;
+                background: rgba(255, 255, 255, 0.1);
+                z-index: 49;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+            }
+            #scroll-thumb {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 30%;
+                border-radius: 0;
+                background: #ffffff;
+            }
 
-<!-- Background scene -->
-<div id="scene">
+            /* Close chevron */
+            #close-btn {
+                margin-left: auto;
+                background: none;
+                border: none;
+                cursor: pointer;
+                padding: 14px 16px;
+                line-height: 0;
+                opacity: 0.4;
+                transition:
+                    opacity 0.15s,
+                    transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+            }
+            #close-btn:hover {
+                opacity: 1;
+                transform: rotate(90deg) scale(1.15);
+            }
+            #close-btn:active {
+                transform: rotate(90deg) scale(0.9);
+                transition: transform 0.1s ease-out;
+            }
 
-  <!--
+            /* blur+choke lives in each SVG's own filter — no CSS needed */
+
+            /* Float keyframes removed — JS physics system handles all cross movement */
+
+            /* Mascot: gentle bob + squish */
+            @keyframes mascot-bob {
+                0%,
+                100% {
+                    transform: translateY(0) scaleY(1) scaleX(1);
+                }
+                35% {
+                    transform: translateY(-9px) scaleY(1.05) scaleX(0.97);
+                }
+                65% {
+                    transform: translateY(-6px) scaleY(1.02) scaleX(0.99);
+                }
+            }
+            #mascot svg {
+                animation: mascot-bob 3.8s cubic-bezier(0.45, 0.05, 0.55, 0.95)
+                    infinite;
+                transform-origin: bottom center;
+            }
+
+            @media (prefers-reduced-motion: reduce) {
+                .cross-wrap {
+                    animation: none !important;
+                }
+                #mascot svg {
+                    animation: none !important;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <!-- Black stage inside the white frame (also the click target for spawning pixels) -->
+        <div id="stage" aria-hidden="true"></div>
+
+
+        <!-- Background scene -->
+        <div id="scene">
+            <canvas id="fluid-bg" aria-hidden="true"></canvas>
+
+            <!--
     Cross shape: chunky pixel-art plus, blur+choke filter.
     Path = outer cross (clockwise) + inner hole (counter-clockwise),
     fill-rule="evenodd" punches the hole through.
@@ -334,448 +534,1258 @@
     viewBox 78×78, each "fat pixel" arm = 26×26px.
   -->
 
-  <!-- Orange cross: left-center -->
-  <div class="cross-wrap orange" style="left:7%;top:38%;animation:float-a 6s ease-in-out infinite;">
-    <svg width="72" height="72" viewBox="0 0 78 78" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" overflow="visible">
-      <defs>
-        <filter id="choke-or" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>
-          <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -8"/>
-        </filter>
-      </defs>
-      <path fill="#E8850A" fill-rule="evenodd" filter="url(#choke-or)"
-        d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z M32 32h14v14H32Z"/>
-    </svg>
-  </div>
+            <!-- Orange cross: left-center -->
+            <div
+                class="cross-wrap orange"
+                style="left:7%;top:38%;"
+            >
+                <svg
+                    width="72"
+                    height="72"
+                    viewBox="0 0 78 78"
+                    xmlns="http://www.w3.org/2000/svg"
+                    shape-rendering="crispEdges"
+                    overflow="visible"
+                >
+                    <defs>
+                        <filter
+                            id="choke-or"
+                            x="-30%"
+                            y="-30%"
+                            width="160%"
+                            height="160%"
+                            color-interpolation-filters="sRGB"
+                        >
+                            <feGaussianBlur
+                                in="SourceGraphic"
+                                stdDeviation="2.2"
+                                result="b"></feGaussianBlur>
+                            <feColorMatrix
+                                in="b"
+                                type="matrix"
+                                values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -8"
+                            ></feColorMatrix>
+                        </filter>
+                    </defs>
+                    <path
+                        fill="#E8850A"
+                        fill-rule="evenodd"
+                        filter="url(#choke-or)"
+                        d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z M32 32h14v14H32Z"
+                    ></path>
+                </svg>
+            </div>
 
-  <!-- Lime cross: upper-center -->
-  <div class="cross-wrap lime" style="left:46%;top:15%;animation:float-b 7.5s ease-in-out infinite 1.2s;">
-    <svg width="58" height="58" viewBox="0 0 78 78" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" overflow="visible">
-      <defs>
-        <filter id="choke-li" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>
-          <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -8"/>
-        </filter>
-      </defs>
-      <path fill="#BDED00" fill-rule="evenodd" filter="url(#choke-li)"
-        d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z M32 32h14v14H32Z"/>
-    </svg>
-  </div>
+            <!-- Lime cross: upper-center -->
+            <div
+                class="cross-wrap lime"
+                style="left:46%;top:15%;"
+            >
+                <svg
+                    width="58"
+                    height="58"
+                    viewBox="0 0 78 78"
+                    xmlns="http://www.w3.org/2000/svg"
+                    shape-rendering="crispEdges"
+                    overflow="visible"
+                >
+                    <defs>
+                        <filter
+                            id="choke-li"
+                            x="-30%"
+                            y="-30%"
+                            width="160%"
+                            height="160%"
+                            color-interpolation-filters="sRGB"
+                        >
+                            <feGaussianBlur
+                                in="SourceGraphic"
+                                stdDeviation="2.2"
+                                result="b"></feGaussianBlur>
+                            <feColorMatrix
+                                in="b"
+                                type="matrix"
+                                values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -8"
+                            ></feColorMatrix>
+                        </filter>
+                    </defs>
+                    <path
+                        fill="#BDED00"
+                        fill-rule="evenodd"
+                        filter="url(#choke-li)"
+                        d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z M32 32h14v14H32Z"
+                    ></path>
+                </svg>
+            </div>
 
-  <!-- Blue cross: upper-right -->
-  <div class="cross-wrap blue" style="left:63%;top:8%;animation:float-c 8s ease-in-out infinite 0.6s;">
-    <svg width="76" height="76" viewBox="0 0 78 78" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" overflow="visible">
-      <defs>
-        <filter id="choke-bl" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>
-          <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -8"/>
-        </filter>
-      </defs>
-      <path fill="#2535E8" fill-rule="evenodd" filter="url(#choke-bl)"
-        d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z M32 32h14v14H32Z"/>
-    </svg>
-  </div>
+            <!-- Blue cross: upper-right -->
+            <div
+                class="cross-wrap blue"
+                style="left:63%;top:8%;"
+            >
+                <svg
+                    width="76"
+                    height="76"
+                    viewBox="0 0 78 78"
+                    xmlns="http://www.w3.org/2000/svg"
+                    shape-rendering="crispEdges"
+                    overflow="visible"
+                >
+                    <defs>
+                        <filter
+                            id="choke-bl"
+                            x="-30%"
+                            y="-30%"
+                            width="160%"
+                            height="160%"
+                            color-interpolation-filters="sRGB"
+                        >
+                            <feGaussianBlur
+                                in="SourceGraphic"
+                                stdDeviation="2.2"
+                                result="b"></feGaussianBlur>
+                            <feColorMatrix
+                                in="b"
+                                type="matrix"
+                                values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -8"
+                            ></feColorMatrix>
+                        </filter>
+                    </defs>
+                    <path
+                        fill="#2535E8"
+                        fill-rule="evenodd"
+                        filter="url(#choke-bl)"
+                        d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z M32 32h14v14H32Z"
+                    ></path>
+                </svg>
+            </div>
 
-  <!-- Green cross: lower-right -->
-  <div class="cross-wrap green" style="right:7%;top:58%;animation:float-d 6.8s ease-in-out infinite 2s;">
-    <svg width="66" height="66" viewBox="0 0 78 78" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" overflow="visible">
-      <defs>
-        <filter id="choke-gr" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>
-          <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -8"/>
-        </filter>
-      </defs>
-      <path fill="#00C44E" fill-rule="evenodd" filter="url(#choke-gr)"
-        d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z M32 32h14v14H32Z"/>
-    </svg>
-  </div>
+            <!-- Green cross: lower-right -->
+            <div
+                class="cross-wrap green"
+                style="right:7%;top:58%;"
+            >
+                <svg
+                    width="66"
+                    height="66"
+                    viewBox="0 0 78 78"
+                    xmlns="http://www.w3.org/2000/svg"
+                    shape-rendering="crispEdges"
+                    overflow="visible"
+                >
+                    <defs>
+                        <filter
+                            id="choke-gr"
+                            x="-30%"
+                            y="-30%"
+                            width="160%"
+                            height="160%"
+                            color-interpolation-filters="sRGB"
+                        >
+                            <feGaussianBlur
+                                in="SourceGraphic"
+                                stdDeviation="2.2"
+                                result="b"></feGaussianBlur>
+                            <feColorMatrix
+                                in="b"
+                                type="matrix"
+                                values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -8"
+                            ></feColorMatrix>
+                        </filter>
+                    </defs>
+                    <path
+                        fill="#00C44E"
+                        fill-rule="evenodd"
+                        filter="url(#choke-gr)"
+                        d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z M32 32h14v14H32Z"
+                    ></path>
+                </svg>
+            </div>
 
-  <!--
+            <!--
     Mascot: 10-col × 9-row pixel grid, 13px per cell = 130×117px.
     Body has a large rectangular window cutout (rows 3-5, cols 2-7).
     Same blur+choke filter — soft matte edges, grain from body::after sits on top.
   -->
-  <div id="mascot">
-    <svg width="130" height="117" viewBox="0 0 130 117" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" overflow="visible">
-      <defs>
-        <filter id="choke-mascot" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="b"/>
-          <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -7"/>
-        </filter>
-      </defs>
-      <!--
-        Pixel map (P=13px):
-        row 0: _ X X _ _ _ _ X X _   antennae
-        row 1: _ X X X X X X X X _   head
-        row 2: X X X X X X X X X X   full
-        row 3: X X _ _ _ _ _ _ X X   body top window
-        row 4: X X _ _ _ _ _ _ X X   body window
-        row 5: X X _ _ _ _ _ _ X X   body window
-        row 6: X X X X X X X X X X   lower body
-        row 7: X _ _ _ _ _ _ _ _ X   base bar
-        row 8: X _ X _ _ _ _ X _ X   feet
-      -->
-      <g fill="#F020A0" filter="url(#choke-mascot)">
-        <!-- row 0: antennae at col 1,2 and col 7,8 -->
-        <rect x="13"  y="0"  width="26" height="13"/>
-        <rect x="91"  y="0"  width="26" height="13"/>
-        <!-- row 1: head cols 1-8 -->
-        <rect x="13"  y="13" width="104" height="13"/>
-        <!-- row 2: full width -->
-        <rect x="0"   y="26" width="130" height="13"/>
-        <!-- row 3: cols 0-1 and cols 8-9 (window gap cols 2-7) -->
-        <rect x="0"   y="39" width="26"  height="13"/>
-        <rect x="104" y="39" width="26"  height="13"/>
-        <!-- row 4: same -->
-        <rect x="0"   y="52" width="26"  height="13"/>
-        <rect x="104" y="52" width="26"  height="13"/>
-        <!-- row 5: same -->
-        <rect x="0"   y="65" width="26"  height="13"/>
-        <rect x="104" y="65" width="26"  height="13"/>
-        <!-- row 6: full width -->
-        <rect x="0"   y="78" width="130" height="13"/>
-        <!-- row 7: cols 0 and col 9 only -->
-        <rect x="0"   y="91" width="13"  height="13"/>
-        <rect x="117" y="91" width="13"  height="13"/>
-        <!-- row 8: col 0, col 2, col 7, col 9 -->
-        <rect x="0"   y="104" width="13" height="13"/>
-        <rect x="26"  y="104" width="13" height="13"/>
-        <rect x="91"  y="104" width="13" height="13"/>
-        <rect x="117" y="104" width="13" height="13"/>
-      </g>
-    </svg>
-  </div>
+            <div id="mascot">
+                <svg
+                    width={mascotW}
+                    height={mascotH}
+                    viewBox={`0 0 ${mascotW} ${mascotH}`}
+                    xmlns="http://www.w3.org/2000/svg"
+                    shape-rendering="crispEdges"
+                    overflow="visible"
+                >
+                    <defs>
+                        <filter
+                            id="choke-mascot"
+                            x="-20%"
+                            y="-20%"
+                            width="140%"
+                            height="140%"
+                            color-interpolation-filters="sRGB"
+                        >
+                            <feGaussianBlur
+                                in="SourceGraphic"
+                                stdDeviation="1.8"
+                                result="b"></feGaussianBlur>
+                            <feColorMatrix
+                                in="b"
+                                type="matrix"
+                                values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -7"
+                            ></feColorMatrix>
+                        </filter>
+                    </defs>
+                    <g
+                        fill="#F020A0"
+                        filter="url(#choke-mascot)"
+                        set:html={mascotRects}
+                    />
+                </svg>
+            </div>
+        </div><!-- /scene -->
 
-</div><!-- /scene -->
 
-<!-- Footer tagline -->
-<p id="tagline">an independent studio crafting<br>thoughtful digital experiences.</p>
+        <!-- Floating member preview -->
+        <div id="member-preview" aria-hidden="true">
+            <img id="member-preview-img" src="" alt="" />
+        </div>
 
-<!-- Nav pill / panel -->
-<div id="nav-pill">
+        <!-- Nav pill / panel -->
+        <div id="nav-pill">
+            <!-- Icon visible in pill state: mini mascot, same blur+choke -->
+            <div id="pill-icon" aria-hidden="true">
+                <svg
+                    width="32"
+                    height="29"
+                    viewBox={`0 0 ${mascotW} ${mascotH}`}
+                    xmlns="http://www.w3.org/2000/svg"
+                    shape-rendering="crispEdges"
+                    overflow="visible"
+                >
+                    <defs>
+                        <filter
+                            id="choke-pi"
+                            x="-20%"
+                            y="-20%"
+                            width="140%"
+                            height="140%"
+                            color-interpolation-filters="sRGB"
+                        >
+                            <feGaussianBlur
+                                in="SourceGraphic"
+                                stdDeviation="2"
+                                result="b"></feGaussianBlur>
+                            <feColorMatrix
+                                in="b"
+                                type="matrix"
+                                values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -7"
+                            ></feColorMatrix>
+                        </filter>
+                    </defs>
+                    <g
+                        fill="#ffffff"
+                        filter="url(#choke-pi)"
+                        set:html={mascotRects}
+                    />
+                </svg>
+            </div>
 
-  <!-- Icon visible in pill state: mini mascot, same blur+choke -->
-  <div id="pill-icon" aria-hidden="true">
-    <svg width="32" height="29" viewBox="0 0 130 117" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" overflow="visible">
-      <defs>
-        <filter id="choke-pi" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
-          <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="b"/>
-          <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -7"/>
-        </filter>
-      </defs>
-      <g fill="#F020A0" filter="url(#choke-pi)">
-        <rect x="13"  y="0"  width="26" height="13"/>
-        <rect x="91"  y="0"  width="26" height="13"/>
-        <rect x="13"  y="13" width="104" height="13"/>
-        <rect x="0"   y="26" width="130" height="13"/>
-        <rect x="0"   y="39" width="26"  height="13"/>
-        <rect x="104" y="39" width="26"  height="13"/>
-        <rect x="0"   y="52" width="26"  height="13"/>
-        <rect x="104" y="52" width="26"  height="13"/>
-        <rect x="0"   y="65" width="26"  height="13"/>
-        <rect x="104" y="65" width="26"  height="13"/>
-        <rect x="0"   y="78" width="130" height="13"/>
-        <rect x="0"   y="91" width="13"  height="13"/>
-        <rect x="117" y="91" width="13"  height="13"/>
-        <rect x="0"   y="104" width="13" height="13"/>
-        <rect x="26"  y="104" width="13" height="13"/>
-        <rect x="91"  y="104" width="13" height="13"/>
-        <rect x="117" y="104" width="13" height="13"/>
-      </g>
-    </svg>
-  </div>
+            <!-- Full menu panel (revealed after morph) -->
+            <div
+                id="menu-panel"
+                aria-hidden="true"
+                role="dialog"
+                aria-label="Menu"
+            >
+                <div id="work-grid">
+                    <p id="panel-tagline">
+                        jamms is a fast moving, close-knit team of passionate
+                        designers, artists, and developers. we make projects that stick.
+                    </p>
 
-  <!-- Full menu panel (revealed after morph) -->
-  <div id="menu-panel" aria-hidden="true" role="dialog" aria-label="Menu">
+                    <div class="work-item">
+                        <p class="work-label">astra</p>
+                        <div class="work-card"></div>
+                    </div>
 
-    <div id="work-grid">
+                    <a
+                        href="https://etea.cafe"
+                        class="work-item"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <p class="work-label">etea.cafe</p>
+                        <div class="work-card"></div>
+                    </a>
 
-      <div class="work-item">
-        <p class="work-label">astra</p>
-        <div class="work-card"></div>
-      </div>
+                    <a href="/projects/spread-the-love" class="work-item">
+                        <p class="work-label">spread the love</p>
+                        <div class="work-card"></div>
+                    </a>
 
-      <a href="https://etea.cafe" class="work-item" target="_blank" rel="noopener noreferrer">
-        <p class="work-label">etea.cafe</p>
-        <div class="work-card"></div>
-      </a>
+                    <div class="work-item">
+                        <p class="work-label">etea</p>
+                        <div class="work-card"></div>
+                    </div>
+                </div><!-- /work-grid -->
 
-      <a href="/projects/spread-the-love" class="work-item">
-        <p class="work-label">spread the love</p>
-        <div class="work-card"></div>
-      </a>
+                <!-- Team panel -->
+                <div id="team-panel">
+                    <a
+                        href="https://jadden.xyz"
+                        class="team-row"
+                        data-avatar="/img/jadden.png"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <span class="team-name">jadden</span>
+                        <span class="team-role">co director</span>
+                    </a>
+                    <a
+                        href="https://saahil.xyz"
+                        class="team-row"
+                        data-avatar="/img/saahil.png"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <span class="team-name">saahil</span>
+                        <span class="team-role">co director</span>
+                    </a>
+                    <a
+                        href="https://aliciazhou.xyz"
+                        class="team-row"
+                        data-avatar="/img/alicia.png"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <span class="team-name">alicia</span>
+                        <span class="team-role">lead artist</span>
+                    </a>
+                    <a
+                        href="https://x.com/RandomPossibly"
+                        class="team-row"
+                        data-avatar="/img/mason.png"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <span class="team-name">mason</span>
+                        <span class="team-role">lead composer</span>
+                    </a>
+                    <p id="team-blurb">jamms is a fast moving, close-knit team of passionate designers, developers, and artists. we make things stick.<br/>for inquiries, contact <a href="mailto:fruit@jam.ms" id="team-contact">fruit@jam.ms</a></p>
+                </div><!-- /team-panel -->
+            </div><!-- /menu-panel -->
 
-      <div class="work-item">
-        <p class="work-label">etea</p>
-        <div class="work-card"></div>
-      </div>
+            <!-- Section tabs: horizontal bar at top of panel -->
+            <nav id="side-tabs" aria-label="Sections" aria-hidden="true">
+                <button
+                    class="tab-btn active"
+                    data-tab="work"
+                    aria-pressed="true">work</button
+                >
+                <button class="tab-btn" data-tab="team" aria-pressed="false"
+                    >about</button
+                >
+                <button class="tab-btn" data-tab="about" aria-pressed="false"
+                    >blog</button
+                >
+                <button id="close-btn" aria-label="Close menu">
+                    <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 14 14"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                    >
+                        <path
+                            d="M1 1L13 13M13 1L1 13"
+                            stroke="#ffffff"
+                            stroke-width="2"
+                            stroke-linecap="round"></path>
+                    </svg>
+                </button>
+            </nav>
+        </div><!-- /nav-pill -->
 
-    </div><!-- /work-grid -->
+        <!-- Scroll pill: floats on the black to the panel's right -->
+        <div id="scroll-rail" aria-hidden="true">
+            <div id="scroll-thumb"></div>
+        </div>
 
-    <!-- Close chevron -->
-    <button id="close-btn" aria-label="Close menu">
-      <svg width="22" height="13" viewBox="0 0 22 13" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M2 2L11 11L20 2" stroke="#FF28A8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </button>
+        <script>
+            import { gsap } from "gsap";
 
-  </div><!-- /menu-panel -->
+            const pill = document.getElementById("nav-pill");
+            const panel = document.getElementById("menu-panel");
+            const pillIcon = document.getElementById("pill-icon");
+            const closeBtn = document.getElementById("close-btn");
+            const sideTabs = document.getElementById("side-tabs");
+            const scrollRail = document.getElementById("scroll-rail");
+            const scrollThumb = document.getElementById("scroll-thumb");
+            const workGrid = document.getElementById("work-grid");
+            const stage = document.getElementById("stage");
+            const scene = document.getElementById("scene");
+            let isOpen = false;
+            let animating = false;
 
-</div><!-- /nav-pill -->
+            const reducedMotion = window.matchMedia(
+                "(prefers-reduced-motion: reduce)",
+            ).matches;
+            const dur = reducedMotion ? 0 : 1;
 
-<!-- Vertical section tabs: protrude from the panel's left edge onto the black -->
-<nav id="side-tabs" aria-label="Sections" aria-hidden="true">
-  <button class="tab-btn active" data-tab="work" aria-pressed="true">work</button>
-  <button class="tab-btn" data-tab="contact" aria-pressed="false">contact</button>
-  <button class="tab-btn" data-tab="about" aria-pressed="false">about</button>
-</nav>
+            /* Open-state panel width: leave room for the side tabs (left) and scroll pill (right) */
+            function panelWidth() {
+                return Math.min(300, window.innerWidth - 48);
+            }
 
-<!-- Scroll pill: floats on the black to the panel's right -->
-<div id="scroll-rail" aria-hidden="true">
-  <div id="scroll-thumb"></div>
-</div>
+            function setPanelWidthVar(w) {
+                document.documentElement.style.setProperty(
+                    "--panel-w",
+                    w + "px",
+                );
+            }
 
-<script>
-  import { gsap } from 'gsap';
+            /* ── Custom scroll pill sync ────────────────────────────── */
+            function syncThumb() {
+                const sh = workGrid.scrollHeight;
+                const ch = workGrid.clientHeight;
+                if (sh <= ch) {
+                    scrollRail.style.display = "none";
+                    return;
+                }
+                scrollRail.style.display = "";
+                const thumbPct = Math.max((ch / sh) * 100, 14);
+                const progress = workGrid.scrollTop / (sh - ch);
+                scrollThumb.style.height = thumbPct + "%";
+                scrollThumb.style.top = progress * (100 - thumbPct) + "%";
+            }
+            workGrid.addEventListener("scroll", syncThumb);
 
-  const pill = document.getElementById('nav-pill');
-  const panel = document.getElementById('menu-panel');
-  const pillIcon = document.getElementById('pill-icon');
-  const closeBtn = document.getElementById('close-btn');
-  const sideTabs = document.getElementById('side-tabs');
-  const scrollRail = document.getElementById('scroll-rail');
-  const scrollThumb = document.getElementById('scroll-thumb');
-  const workGrid = document.getElementById('work-grid');
-  const stage = document.getElementById('stage');
-  const scene = document.getElementById('scene');
-  let isOpen = false;
-  let animating = false;
+            function openMenu() {
+                if (isOpen || animating) return;
+                animating = true;
+                isOpen = true;
+                pill.classList.add("is-open");
 
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const dur = reducedMotion ? 0 : 1;
+                const w = panelWidth();
+                setPanelWidthVar(w);
 
-  /* Open-state panel width: leave room for the side tabs (left) and scroll pill (right) */
-  function panelWidth() {
-    return Math.min(520, window.innerWidth - 130);
-  }
+                const tl = gsap.timeline({
+                    onComplete: () => {
+                        animating = false;
+                    },
+                });
 
-  function setPanelWidthVar(w) {
-    document.documentElement.style.setProperty('--panel-w', w + 'px');
-  }
+                // Fade out pill icon
+                tl.to(
+                    pillIcon,
+                    { opacity: 0, duration: 0.12 * dur || 0.001 },
+                    0,
+                );
 
-  /* ── Custom scroll pill sync ────────────────────────────── */
-  function syncThumb() {
-    const sh = workGrid.scrollHeight;
-    const ch = workGrid.clientHeight;
-    if (sh <= ch) {
-      scrollRail.style.display = 'none';
-      return;
-    }
-    scrollRail.style.display = '';
-    const thumbPct = Math.max((ch / sh) * 100, 14);
-    const progress = workGrid.scrollTop / (sh - ch);
-    scrollThumb.style.height = thumbPct + '%';
-    scrollThumb.style.top = (progress * (100 - thumbPct)) + '%';
-  }
-  workGrid.addEventListener('scroll', syncThumb);
+                // Tabs appear immediately as pill starts growing
+                tl.to(
+                    [sideTabs, scrollRail],
+                    {
+                        autoAlpha: 1,
+                        duration: 0.18 * dur || 0.001,
+                        onStart: () => {
+                            sideTabs.style.pointerEvents = "auto";
+                            sideTabs.removeAttribute("aria-hidden");
+                        },
+                    },
+                    0,
+                );
 
-  function openMenu() {
-    if (isOpen || animating) return;
-    animating = true;
-    isOpen = true;
-    pill.classList.add('is-open');
+                // Grow tall and wide — slight elastic overshoot for jiggle
+                tl.to(
+                    pill,
+                    {
+                        bottom: 0,
+                        height: "82vh",
+                        width: w,
+                        borderRadius: "0px",
+                        duration: 0.52 * dur || 0.001,
+                        ease: "power4.out",
+                    },
+                    0,
+                );
 
-    const w = panelWidth();
-    setPanelWidthVar(w);
+                // Panel content fades in while pill is still growing
+                tl.to(
+                    panel,
+                    {
+                        opacity: 1,
+                        duration: 0.36 * dur || 0.001,
+                        onStart: () => {
+                            panel.style.pointerEvents = "auto";
+                            panel.removeAttribute("aria-hidden");
+                            syncThumb();
+                        },
+                    },
+                    0.1 * dur || 0.001,
+                );
+            }
 
-    const tl = gsap.timeline({ onComplete: () => { animating = false; } });
+            function closeMenu() {
+                if (!isOpen || animating) return;
+                animating = true;
 
-    // Fade out pill icon
-    tl.to(pillIcon, { opacity: 0, duration: 0.12 * dur || 0.001 }, 0);
+                const tl = gsap.timeline({
+                    onComplete: () => {
+                        isOpen = false;
+                        animating = false;
+                        pill.classList.remove("is-open");
+                    },
+                });
 
-    // Grow tall and wide
-    tl.to(pill, {
-      bottom: 0,
-      height: '82vh',
-      width: w,
-      borderRadius: '26px',
-      duration: 0.42 * dur || 0.001,
-      ease: 'power4.out',
-    }, 0);
+                // Hide panel content, tabs, and scroll pill
+                tl.to(
+                    [panel, sideTabs, scrollRail],
+                    {
+                        autoAlpha: 0,
+                        duration: 0.15 * dur || 0.001,
+                        onComplete: () => {
+                            panel.style.pointerEvents = "none";
+                            panel.setAttribute("aria-hidden", "true");
+                            sideTabs.style.pointerEvents = "none";
+                            sideTabs.setAttribute("aria-hidden", "true");
+                        },
+                    },
+                    0,
+                );
 
-    // Reveal panel content
-    tl.to(panel, {
-      opacity: 1,
-      duration: 0.22 * dur || 0.001,
-      onStart: () => {
-        panel.style.pointerEvents = 'auto';
-        panel.removeAttribute('aria-hidden');
-        syncThumb();
-      }
-    }, 0.38 * dur || 0.001);
+                // Collapse back to pill
+                tl.to(
+                    pill,
+                    {
+                        bottom: "-16px",
+                        height: "56px",
+                        width: 290,
+                        borderRadius: "0px",
+                        duration: 0.32 * dur || 0.001,
+                        ease: "power4.in",
+                    },
+                    0.12 * dur || 0.001,
+                );
 
-    // Reveal side tabs + scroll pill (autoAlpha toggles visibility too)
-    tl.to([sideTabs, scrollRail], {
-      autoAlpha: 1,
-      duration: 0.22 * dur || 0.001,
-      onStart: () => {
-        sideTabs.style.pointerEvents = 'auto';
-        sideTabs.removeAttribute('aria-hidden');
-      }
-    }, 0.42 * dur || 0.001);
-  }
+                // Restore pill icon
+                tl.to(
+                    pillIcon,
+                    { opacity: 1, duration: 0.18 * dur || 0.001 },
+                    0.48 * dur || 0.001,
+                );
 
-  function closeMenu() {
-    if (!isOpen || animating) return;
-    animating = true;
+                // panel keeps opacity via autoAlpha; reset its opacity for next open
+                tl.set(panel, { opacity: 0, visibility: "" });
+            }
 
-    const tl = gsap.timeline({
-      onComplete: () => {
-        isOpen = false;
-        animating = false;
-        pill.classList.remove('is-open');
-      }
-    });
+            // Open on click (but not on close-btn click)
+            pill.addEventListener("click", () => {
+                if (!isOpen) openMenu();
+            });
 
-    // Hide panel content, tabs, and scroll pill
-    tl.to([panel, sideTabs, scrollRail], {
-      autoAlpha: 0,
-      duration: 0.15 * dur || 0.001,
-      onComplete: () => {
-        panel.style.pointerEvents = 'none';
-        panel.setAttribute('aria-hidden', 'true');
-        sideTabs.style.pointerEvents = 'none';
-        sideTabs.setAttribute('aria-hidden', 'true');
-      }
-    }, 0);
+            closeBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                closeMenu();
+            });
 
-    // Collapse back to pill
-    tl.to(pill, {
-      bottom: '-16px',
-      height: '56px',
-      width: 290,
-      borderRadius: '28px',
-      duration: 0.32 * dur || 0.001,
-      ease: 'power4.in',
-    }, 0.12 * dur || 0.001);
+            // Keyboard: Escape closes
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape" && isOpen) closeMenu();
+            });
 
-    // Restore pill icon
-    tl.to(pillIcon, { opacity: 1, duration: 0.18 * dur || 0.001 }, 0.48 * dur || 0.001);
+            // Keep panel width + rails aligned on resize
+            window.addEventListener("resize", () => {
+                if (!isOpen) return;
+                const w = panelWidth();
+                setPanelWidthVar(w);
+                gsap.set(pill, { width: w });
+                syncThumb();
+            });
 
-    // panel keeps opacity via autoAlpha; reset its opacity for next open
-    tl.set(panel, { opacity: 0, visibility: '' });
-  }
+            // Tab navigation in rail
+            const teamPanel = document.getElementById("team-panel");
 
-  // Open on click (but not on close-btn click)
-  pill.addEventListener('click', () => {
-    if (!isOpen) openMenu();
-  });
+            function showTab(tab) {
+                if (tab === "work") {
+                    workGrid.style.display = "flex";
+                    teamPanel.classList.remove("visible");
+                } else if (tab === "team") {
+                    workGrid.style.display = "none";
+                    teamPanel.classList.add("visible");
+                } else {
+                    workGrid.style.display = "none";
+                    teamPanel.classList.remove("visible");
+                }
+            }
 
-  closeBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    closeMenu();
-  });
+            document.querySelectorAll(".tab-btn").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    document.querySelectorAll(".tab-btn").forEach((b) => {
+                        b.classList.remove("active");
+                        b.setAttribute("aria-pressed", "false");
+                    });
+                    btn.classList.add("active");
+                    btn.setAttribute("aria-pressed", "true");
+                    showTab(btn.dataset.tab);
+                });
+            });
 
-  // Keyboard: Escape closes
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && isOpen) closeMenu();
-  });
+            // Member preview on hover — direction-aware elastic spring
+            const memberPreview = document.getElementById("member-preview");
+            const memberPreviewImg =
+                document.getElementById("member-preview-img");
 
-  // Keep panel width + rails aligned on resize
-  window.addEventListener('resize', () => {
-    if (!isOpen) return;
-    const w = panelWidth();
-    setPanelWidthVar(w);
-    gsap.set(pill, { width: w });
-    syncThumb();
-  });
+            let previewTween = null;
+            let mouseVX = 0,
+                mouseVY = 0,
+                lastMouseX = 0,
+                lastMouseY = 0;
 
-  // Tab navigation in rail
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => {
-        b.classList.remove('active');
-        b.setAttribute('aria-pressed', 'false');
-      });
-      btn.classList.add('active');
-      btn.setAttribute('aria-pressed', 'true');
-    });
-  });
+            document.addEventListener("mousemove", (e) => {
+                mouseVX = e.clientX - lastMouseX;
+                mouseVY = e.clientY - lastMouseY;
+                lastMouseX = e.clientX;
+                lastMouseY = e.clientY;
+            });
 
-  /* ── Click-to-spawn pixels on the black stage ───────────── */
-  const PALETTE = ['#E8850A', '#BDED00', '#2535E8', '#00C44E', '#F020A0', '#FF28A8', '#28E0C8'];
-  // shape variants on the same 78×78 fat-pixel grid as the scene crosses
-  const SHAPES = [
-    // plus with punched hole
-    '<path fill-rule="evenodd" d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z M32 32h14v14H32Z"/>',
-    // solid plus
-    '<path d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z"/>',
-    // X: four corners + center, blur+choke goos them together
-    '<rect x="0" y="0" width="26" height="26"/><rect x="52" y="0" width="26" height="26"/><rect x="26" y="26" width="26" height="26"/><rect x="0" y="52" width="26" height="26"/><rect x="52" y="52" width="26" height="26"/>',
-  ];
-  const MAX_SPAWNED = 24;
-  const spawned = [];
-  let spawnCount = 0;
-  const FLOATS = ['float-a', 'float-b', 'float-c', 'float-d'];
+            document.querySelectorAll(".team-row").forEach((row) => {
+                row.addEventListener("mouseenter", () => {
+                    const src = row.dataset.avatar;
+                    const rowRect = row.getBoundingClientRect();
+                    const pillRect = pill.getBoundingClientRect();
+                    memberPreviewImg.src = src;
+                    memberPreviewImg.alt =
+                        row.querySelector(".team-name").textContent;
 
-  function spawnPixel(x, y) {
-    const color = PALETTE[Math.floor(Math.random() * PALETTE.length)];
-    const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-    const size = Math.round(36 + Math.random() * 40);
-    const id = 'choke-u' + (++spawnCount);
+                    // direction the mouse is travelling — drives entry offset and tilt
+                    const dirX = mouseVX >= 0 ? 1 : -1;
+                    const dirY = mouseVY >= 0 ? 1 : -1;
+                    const entryX = dirX * -20;
+                    const entryY = dirY * 14;
+                    const entryRot = dirX * 10;
 
-    const wrap = document.createElement('div');
-    wrap.className = 'cross-wrap spawned';
-    // Astro scopes this page's <style>, so JS-created nodes miss .cross-wrap — position inline
-    wrap.style.position = 'absolute';
-    wrap.style.willChange = 'transform';
-    wrap.style.left = (x - size / 2) + 'px';
-    wrap.style.top = (y - size / 2) + 'px';
-    wrap.innerHTML =
-      `<svg width="${size}" height="${size}" viewBox="0 0 78 78" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" overflow="visible">` +
-      `<defs><filter id="${id}" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">` +
-      `<feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>` +
-      `<feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -8"/>` +
-      `</filter></defs>` +
-      `<g fill="${color}" filter="url(#${id})">${shape}</g>` +
-      `</svg>`;
-    scene.appendChild(wrap);
-    spawned.push(wrap);
+                    gsap.set(memberPreview, {
+                        left: pillRect.left - 140,
+                        top: rowRect.top - 10,
+                    });
 
-    // pop in, then drift with the same float loop as the scene crosses
-    gsap.fromTo(wrap.firstElementChild,
-      { scale: 0, transformOrigin: '50% 50%' },
-      {
-        scale: 1,
-        duration: 0.45 * dur || 0.001,
-        ease: 'back.out(1.8)',
-        onComplete: () => {
-          if (reducedMotion) return;
-          const float = FLOATS[Math.floor(Math.random() * FLOATS.length)];
-          const floatDur = (5 + Math.random() * 4).toFixed(1);
-          wrap.style.animation = `${float} ${floatDur}s ease-in-out infinite`;
-        }
-      }
-    );
+                    if (previewTween) previewTween.kill();
+                    previewTween = gsap.fromTo(
+                        memberPreview,
+                        { opacity: 0, scale: 0.55 },
+                        {
+                            opacity: 1,
+                            scale: 1,
+                            duration: 1.0,
+                            ease: "elastic.out(0.85, 0.6)",
+                        },
+                    );
+                });
 
-    // keep the stage from getting crowded: oldest fades out
-    if (spawned.length > MAX_SPAWNED) {
-      const oldest = spawned.shift();
-      gsap.to(oldest, {
-        opacity: 0,
-        scale: 0.5,
-        duration: 0.3 * dur || 0.001,
-        onComplete: () => oldest.remove(),
-      });
-    }
-  }
+                row.addEventListener("mouseleave", () => {
+                    if (previewTween) previewTween.kill();
+                    const tl = gsap.timeline();
+                    tl.to(
+                        memberPreview,
+                        { opacity: 0, duration: 0.1, ease: "none" },
+                        0,
+                    );
+                    tl.to(
+                        memberPreview,
+                        { scale: 0.8, duration: 0.38, ease: "circ.out" },
+                        0,
+                    );
+                    previewTween = tl;
+                });
+            });
 
-  stage.addEventListener('click', (e) => {
-    // scene is inset by the frame; convert viewport coords to scene coords
-    const rect = scene.getBoundingClientRect();
-    spawnPixel(e.clientX - rect.left, e.clientY - rect.top);
-  });
-</script>
+            /* ── Click-to-spawn pixels on the black stage ───────────── */
+            const PALETTE = [
+                "#E8850A",
+                "#BDED00",
+                "#2535E8",
+                "#00C44E",
+                "#F020A0",
+                "#FF28A8",
+                "#28E0C8",
+            ];
+            // shape variants on the same 78×78 fat-pixel grid as the scene crosses
+            const SHAPES = [
+                // plus with punched hole
+                '<path fill-rule="evenodd" d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z M32 32h14v14H32Z"/>',
+                // solid plus
+                '<path d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z"/>',
+                // X: four corners + center, blur+choke goos them together
+                '<rect x="0" y="0" width="26" height="26"/><rect x="52" y="0" width="26" height="26"/><rect x="26" y="26" width="26" height="26"/><rect x="0" y="52" width="26" height="26"/><rect x="52" y="52" width="26" height="26"/>',
+            ];
+            const MAX_SPAWNED = 40;
+            const spawned = [];
+            let spawnCount = 0;
+            function spawnPixel(x, y) {
+                const color =
+                    PALETTE[Math.floor(Math.random() * PALETTE.length)];
+                const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+                const size = Math.round(36 + Math.random() * 40);
+                const id = "choke-u" + ++spawnCount;
 
-</body>
+                const wrap = document.createElement("div");
+                wrap.className = "cross-wrap spawned";
+                // Astro scopes this page's <style>, so JS-created nodes miss .cross-wrap — position inline
+                wrap.style.position = "absolute";
+                wrap.style.willChange = "transform";
+                wrap.style.left = x - size / 2 + "px";
+                wrap.style.top = y - size / 2 + "px";
+                wrap.innerHTML =
+                    `<svg width="${size}" height="${size}" viewBox="0 0 78 78" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" overflow="visible">` +
+                    `<defs><filter id="${id}" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">` +
+                    `<feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>` +
+                    `<feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -8"/>` +
+                    `</filter></defs>` +
+                    `<g fill="${color}" filter="url(#${id})">${shape}</g>` +
+                    `</svg>`;
+                scene.appendChild(wrap);
+                spawned.push(wrap);
+
+                // pop in — physics system takes over position/rotation after this
+                gsap.fromTo(
+                    wrap.firstElementChild,
+                    {
+                        scale: 0,
+                        rotation: (Math.random() - 0.5) * 30,
+                        transformOrigin: "50% 50%",
+                    },
+                    {
+                        scale: 1,
+                        rotation: 0,
+                        duration: 0.55 * dur || 0.001,
+                        ease: "elastic.out(1, 0.55)",
+                    },
+                );
+
+                // keep the stage from getting crowded: oldest fades out
+                if (spawned.length > MAX_SPAWNED) {
+                    const oldest = spawned.shift();
+                    gsap.to(oldest, {
+                        opacity: 0,
+                        scale: 0.5,
+                        duration: 0.3 * dur || 0.001,
+                        onComplete: () => oldest.remove(),
+                    });
+                }
+            }
+
+            // Burst-spawn on load across the full scene
+            (function initialBurst() {
+                const rect = scene.getBoundingClientRect();
+                const W = rect.width, H = rect.height;
+                const count = 22;
+                for (let i = 0; i < count; i++) {
+                    const x = 60 + Math.random() * (W - 120);
+                    const y = 60 + Math.random() * (H - 120);
+                    // Stagger so pop-in animations don't all fire at once
+                    setTimeout(() => spawnPixel(x, y), i * 40);
+                }
+            })();
+
+            stage.addEventListener("click", (e) => {
+                // scene is inset by the frame; convert viewport coords to scene coords
+                const rect = scene.getBoundingClientRect();
+                spawnPixel(e.clientX - rect.left, e.clientY - rect.top);
+            });
+        </script>
+
+        <script type="module" is:inline>
+            import * as THREE from "https://esm.sh/three@0.170.0";
+
+            const canvas = document.getElementById("fluid-bg");
+            const FRAME = 14;
+            let W = window.innerWidth - FRAME * 2;
+            let H = window.innerHeight - FRAME * 2;
+
+            const renderer = new THREE.WebGLRenderer({
+                canvas,
+                antialias: false,
+            });
+            renderer.setSize(W, H, false);
+            renderer.setPixelRatio(1);
+            renderer.autoClear = false;
+
+            const SIM = 128;
+            const ITERS = 14;
+            const VEL_DISS = 0.99;
+            const CURL_STR = 26;
+            const SPLAT_F = 5000;
+            const SPLAT_R = 0.0022;
+            const WARP_STR = 0.016; // UV displacement strength
+
+            const tType = THREE.HalfFloatType;
+            function mkRT(w, h) {
+                return new THREE.WebGLRenderTarget(w, h, {
+                    minFilter: THREE.LinearFilter,
+                    magFilter: THREE.LinearFilter,
+                    format: THREE.RGBAFormat,
+                    type: tType,
+                    depthBuffer: false,
+                });
+            }
+            class FBO {
+                constructor(w, h) {
+                    this.r = mkRT(w, h);
+                    this.w = mkRT(w, h);
+                }
+                swap() {
+                    const t = this.r;
+                    this.r = this.w;
+                    this.w = t;
+                }
+            }
+
+            const velFBO = new FBO(SIM, SIM);
+            const presFBO = new FBO(SIM, SIM);
+            const divRT = mkRT(SIM, SIM);
+            const curlRT = mkRT(SIM, SIM);
+            // blurred velocity for soft displacement (same size as sim)
+            const blurRT1 = mkRT(SIM, SIM);
+            const blurRT2 = mkRT(SIM, SIM);
+
+            const fxScene = new THREE.Scene();
+            const fxCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+            const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+            fxScene.add(quad);
+
+            function runFX(mat, rt) {
+                quad.material = mat;
+                renderer.setRenderTarget(rt ?? null);
+                renderer.render(fxScene, fxCam);
+            }
+
+            const VS = `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`;
+            function mkMat(fs, uniforms) {
+                return new THREE.ShaderMaterial({
+                    vertexShader: VS,
+                    fragmentShader: "precision highp float;\n" + fs,
+                    uniforms,
+                    depthTest: false,
+                    depthWrite: false,
+                });
+            }
+
+            const advectMat = mkMat(
+                `uniform sampler2D uVel,uSrc; uniform float uDt,uDiss; varying vec2 vUv;
+   void main(){ gl_FragColor=uDiss*texture2D(uSrc,vUv-uDt*texture2D(uVel,vUv).xy); }`,
+                {
+                    uVel: { value: null },
+                    uSrc: { value: null },
+                    uDt: { value: 0.016 },
+                    uDiss: { value: VEL_DISS },
+                },
+            );
+            const divMat = mkMat(
+                `uniform sampler2D uVel; uniform vec2 uT; varying vec2 vUv;
+   void main(){
+     float L=texture2D(uVel,vUv-vec2(uT.x,0)).x,R=texture2D(uVel,vUv+vec2(uT.x,0)).x;
+     float B=texture2D(uVel,vUv-vec2(0,uT.y)).y,T=texture2D(uVel,vUv+vec2(0,uT.y)).y;
+     gl_FragColor=vec4(0.5*(R-L+T-B),0,0,1); }`,
+                {
+                    uVel: { value: null },
+                    uT: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+                },
+            );
+            const presMat = mkMat(
+                `uniform sampler2D uPres,uDiv; uniform vec2 uT; varying vec2 vUv;
+   void main(){
+     float L=texture2D(uPres,vUv-vec2(uT.x,0)).x,R=texture2D(uPres,vUv+vec2(uT.x,0)).x;
+     float B=texture2D(uPres,vUv-vec2(0,uT.y)).x,T=texture2D(uPres,vUv+vec2(0,uT.y)).x;
+     gl_FragColor=vec4((L+R+B+T-texture2D(uDiv,vUv).x)*0.25,0,0,1); }`,
+                {
+                    uPres: { value: null },
+                    uDiv: { value: null },
+                    uT: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+                },
+            );
+            const gradMat = mkMat(
+                `uniform sampler2D uPres,uVel; uniform vec2 uT; varying vec2 vUv;
+   void main(){
+     float L=texture2D(uPres,vUv-vec2(uT.x,0)).x,R=texture2D(uPres,vUv+vec2(uT.x,0)).x;
+     float B=texture2D(uPres,vUv-vec2(0,uT.y)).x,T=texture2D(uPres,vUv+vec2(0,uT.y)).x;
+     gl_FragColor=vec4(texture2D(uVel,vUv).xy-0.5*vec2(R-L,T-B),0,1); }`,
+                {
+                    uPres: { value: null },
+                    uVel: { value: null },
+                    uT: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+                },
+            );
+            const curlMat = mkMat(
+                `uniform sampler2D uVel; uniform vec2 uT; varying vec2 vUv;
+   void main(){
+     float L=texture2D(uVel,vUv-vec2(uT.x,0)).y,R=texture2D(uVel,vUv+vec2(uT.x,0)).y;
+     float B=texture2D(uVel,vUv-vec2(0,uT.y)).x,T=texture2D(uVel,vUv+vec2(0,uT.y)).x;
+     gl_FragColor=vec4(0.5*(R-L-T+B),0,0,1); }`,
+                {
+                    uVel: { value: null },
+                    uT: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+                },
+            );
+            const vortMat = mkMat(
+                `uniform sampler2D uVel,uCurlTex; uniform vec2 uT; uniform float uStr,uDt; varying vec2 vUv;
+   void main(){
+     float L=abs(texture2D(uCurlTex,vUv-vec2(uT.x,0)).x),R=abs(texture2D(uCurlTex,vUv+vec2(uT.x,0)).x);
+     float B=abs(texture2D(uCurlTex,vUv-vec2(0,uT.y)).x),T=abs(texture2D(uCurlTex,vUv+vec2(0,uT.y)).x);
+     gl_FragColor=vec4(texture2D(uVel,vUv).xy+normalize(vec2(T-B,R-L)+0.0001)*uStr*texture2D(uCurlTex,vUv).x*uDt,0,1); }`,
+                {
+                    uVel: { value: null },
+                    uCurlTex: { value: null },
+                    uT: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+                    uStr: { value: CURL_STR },
+                    uDt: { value: 0.016 },
+                },
+            );
+            const clearMat = mkMat(
+                `uniform sampler2D uTex; uniform float uVal; varying vec2 vUv;
+   void main(){ gl_FragColor=uVal*texture2D(uTex,vUv); }`,
+                { uTex: { value: null }, uVal: { value: 0.8 } },
+            );
+            const splatMat = mkMat(
+                `uniform sampler2D uTex; uniform vec2 uPos; uniform vec3 uColor;
+   uniform float uRadius,uAspect; varying vec2 vUv;
+   void main(){
+     vec2 p=vUv-uPos; p.x*=uAspect;
+     gl_FragColor=vec4(texture2D(uTex,vUv).rgb+exp(-dot(p,p)/uRadius)*uColor,1.0); }`,
+                {
+                    uTex: { value: null },
+                    uPos: { value: new THREE.Vector2() },
+                    uColor: { value: new THREE.Vector3() },
+                    uRadius: { value: SPLAT_R },
+                    uAspect: { value: W / H },
+                },
+            );
+
+            // 9-tap Gaussian blur for smooth displacement
+            const BLUR_W = [
+                0.0269, 0.0654, 0.1213, 0.1747, 0.1974, 0.1747, 0.1213, 0.0654,
+                0.0269,
+            ];
+            const blurHMat = mkMat(
+                `uniform sampler2D uTex; uniform vec2 uTexel; varying vec2 vUv;
+   void main(){
+     float w[9]; w[0]=0.0269;w[1]=0.0654;w[2]=0.1213;w[3]=0.1747;w[4]=0.1974;
+     w[5]=0.1747;w[6]=0.1213;w[7]=0.0654;w[8]=0.0269;
+     vec4 c=vec4(0.0);
+     for(int i=0;i<9;i++) c+=texture2D(uTex,vUv+vec2(float(i-4)*uTexel.x*2.0,0.0))*w[i];
+     gl_FragColor=c; }`,
+                {
+                    uTex: { value: null },
+                    uTexel: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+                },
+            );
+            const blurVMat = mkMat(
+                `uniform sampler2D uTex; uniform vec2 uTexel; varying vec2 vUv;
+   void main(){
+     float w[9]; w[0]=0.0269;w[1]=0.0654;w[2]=0.1213;w[3]=0.1747;w[4]=0.1974;
+     w[5]=0.1747;w[6]=0.1213;w[7]=0.0654;w[8]=0.0269;
+     vec4 c=vec4(0.0);
+     for(int i=0;i<9;i++) c+=texture2D(uTex,vUv+vec2(0.0,float(i-4)*uTexel.y*2.0))*w[i];
+     gl_FragColor=c; }`,
+                {
+                    uTex: { value: null },
+                    uTexel: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+                },
+            );
+
+            // Display: warp a procedural noise background with the blurred velocity field.
+            // The noise gives the distortion something to displace — like frosted / wavy glass.
+            const displayMat = mkMat(
+                `uniform sampler2D uVelBlur;
+   uniform float uDisplace;
+   varying vec2 vUv;
+
+   float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+   float noise(vec2 p){
+     vec2 g=floor(p); vec2 f=fract(p);
+     f=f*f*(3.0-2.0*f);
+     return mix(mix(hash(g),hash(g+vec2(1,0)),f.x),
+                mix(hash(g+vec2(0,1)),hash(g+vec2(1,1)),f.x),f.y);
+   }
+
+   void main(){
+     vec2 vel = texture2D(uVelBlur, vUv).xy;
+     float mag = length(vel);
+     float mask = 1.0 - exp(-mag * 22.0);
+     vec2 warpedUV = clamp(vUv + vel * uDisplace * mask, 0.0, 1.0);
+
+     // fine-grain noise — high frequency so warp reads sharp, not blocky
+     float n  = noise(warpedUV * 520.0) * 0.011;
+     float n2 = noise(warpedUV * 280.0 + 7.3) * 0.006;
+
+     vec3 base = vec3(0.0196, 0.0, 0.0196);
+     gl_FragColor = vec4(base + (n + n2), 1.0);
+   }`,
+                { uVelBlur: { value: null }, uDisplace: { value: WARP_STR } },
+            );
+
+            // Tiny Uint8 RT for CPU readback — encode velocity so readPixels works without float16 parsing
+            const ENC_SIZE = 16;
+            const velEncRT = new THREE.WebGLRenderTarget(ENC_SIZE, ENC_SIZE, {
+                minFilter: THREE.LinearFilter,
+                magFilter: THREE.LinearFilter,
+                format: THREE.RGBAFormat,
+                type: THREE.UnsignedByteType,
+                depthBuffer: false,
+            });
+            const velEncMat = mkMat(
+                `uniform sampler2D uVel; varying vec2 vUv;
+   void main(){
+     vec2 v = clamp(texture2D(uVel, vUv).xy * 0.005 + 0.5, 0.0, 1.0);
+     gl_FragColor = vec4(v, 0.0, 1.0);
+   }`,
+                { uVel: { value: null } },
+            );
+            const velPixels = new Uint8Array(ENC_SIZE * ENC_SIZE * 4);
+
+            const sceneEl = document.getElementById("scene");
+
+            // ── 2D Physics system ──────────────────────────────────────────
+            // physicsMap: el → { x, y, vx, vy, rot, rotV, w, h, phase }
+            // Positions are in scene-local px (origin = top-left of #scene).
+            // The CSS float keyframe animations are disabled once a body is registered.
+            const physicsMap = new Map();
+            let physicsT = 0;
+
+            const DRAG         = 0.972;   // velocity damping per frame
+            const ROT_DRAG     = 0.88;    // angular damping
+            const WALL_REST    = 0.55;    // restitution on wall bounce
+            const COLL_REST    = 0.72;    // restitution on element-element collision
+            const DRIFT_AMP    = 24;      // px/s² gentle random drift force amplitude
+            const FLUID_MULT   = 260;     // how hard the fluid kicks elements
+            const MAX_SPEED    = 320;     // px/s cap
+
+            function getSceneDims() {
+                const sr = sceneEl.getBoundingClientRect();
+                return { W: sr.width, H: sr.height, left: sr.left, top: sr.top };
+            }
+
+            function ensureBody(el, scene) {
+                if (physicsMap.has(el)) return physicsMap.get(el);
+                // Bootstrap position from current CSS layout (works for both % and px positioned)
+                const r = el.getBoundingClientRect();
+                const cx = r.left - scene.left + r.width  * 0.5;
+                const cy = r.top  - scene.top  + r.height * 0.5;
+                const body = {
+                    x: cx, y: cy,
+                    vx: (Math.random() - 0.5) * 60,
+                    vy: (Math.random() - 0.5) * 60,
+                    rot: 0,
+                    rotV: (Math.random() - 0.5) * 1.5,
+                    w: r.width, h: r.height,
+                    rad: Math.max(r.width, r.height) * 0.48, // collision circle radius
+                    phase: Math.random() * Math.PI * 2,
+                };
+                physicsMap.set(el, body);
+                // Kill CSS animation — physics owns position from here
+                el.style.animation = 'none';
+                return body;
+            }
+
+            function tickPhysics(dt) {
+                // Encode blurred velocity → tiny Uint8 RT for CPU readback
+                velEncMat.uniforms.uVel.value = blurRT2.texture;
+                runFX(velEncMat, velEncRT);
+                renderer.readRenderTargetPixels(velEncRT, 0, 0, ENC_SIZE, ENC_SIZE, velPixels);
+
+                physicsT += dt;
+                const scene = getSceneDims();
+
+                // Collect all physics elements: crosses + mascot
+                const mascotEl = document.getElementById('mascot');
+                const els = [...document.querySelectorAll('#scene .cross-wrap'), ...(mascotEl ? [mascotEl] : [])];
+
+                // Prune bodies for removed elements (crosses that faded out)
+                for (const k of physicsMap.keys()) {
+                    if (!els.includes(k)) physicsMap.delete(k);
+                }
+
+                const bodies = els.map(el => ({ el, b: ensureBody(el, scene) }));
+
+                // ── Fluid velocity → impulse force ──
+                bodies.forEach(({ b }) => {
+                    const u  = Math.max(0, Math.min(1, b.x / scene.W));
+                    const v  = Math.max(0, Math.min(1, 1 - b.y / scene.H));
+                    const px = Math.min(ENC_SIZE - 1, Math.floor(u * ENC_SIZE));
+                    const py = Math.min(ENC_SIZE - 1, Math.floor(v * ENC_SIZE));
+                    const idx = (py * ENC_SIZE + px) * 4;
+                    const fvx = (velPixels[idx]     / 255.0 - 0.5) / 0.005;
+                    const fvy = (velPixels[idx + 1] / 255.0 - 0.5) / 0.005;
+                    b.vx += fvx * FLUID_MULT * dt;
+                    b.vy -= fvy * FLUID_MULT * dt;
+                    b.rotV += fvx * 0.5 * dt;
+                });
+
+                // ── Gentle organic drift (sine waves per element) ──
+                bodies.forEach(({ b }) => {
+                    b.vx += Math.sin(physicsT * 0.65 + b.phase)       * DRIFT_AMP * dt;
+                    b.vy += Math.cos(physicsT * 0.48 + b.phase + 1.3) * DRIFT_AMP * dt;
+                });
+
+                // ── Elastic circle collisions (no clipping) ──
+                for (let i = 0; i < bodies.length; i++) {
+                    for (let j = i + 1; j < bodies.length; j++) {
+                        const a = bodies[i].b, b = bodies[j].b;
+                        const dx = a.x - b.x, dy = a.y - b.y;
+                        const minDist = a.rad + b.rad;
+                        const dist2 = dx * dx + dy * dy;
+                        if (dist2 < minDist * minDist && dist2 > 0.0001) {
+                            const dist = Math.sqrt(dist2);
+                            const nx = dx / dist, ny = dy / dist;
+
+                            // Positional correction: push apart so they're exactly touching
+                            const overlap = minDist - dist;
+                            a.x += nx * overlap * 0.5;  a.y += ny * overlap * 0.5;
+                            b.x -= nx * overlap * 0.5;  b.y -= ny * overlap * 0.5;
+
+                            // Velocity along collision normal
+                            const relVn = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+                            if (relVn < 0) { // only resolve if approaching
+                                const impulse = -(1 + COLL_REST) * relVn * 0.5; // equal mass
+                                a.vx += impulse * nx;  a.vy += impulse * ny;
+                                b.vx -= impulse * nx;  b.vy -= impulse * ny;
+                                // Small spin on impact
+                                a.rotV += (nx * 0.8) * (Math.random() - 0.5);
+                                b.rotV -= (nx * 0.8) * (Math.random() - 0.5);
+                            }
+                        }
+                    }
+                }
+
+                // ── Integrate + dampen + wall bounce + apply styles ──
+                bodies.forEach(({ el, b }) => {
+                    b.vx *= DRAG;  b.vy *= DRAG;
+                    b.rotV *= ROT_DRAG;
+
+                    // Speed cap
+                    const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+                    if (spd > MAX_SPEED) { b.vx *= MAX_SPEED / spd; b.vy *= MAX_SPEED / spd; }
+
+                    b.x += b.vx * dt;
+                    b.y += b.vy * dt;
+                    b.rot += b.rotV * dt * 35; // degrees
+
+                    // Wall bounce off scene edges (margin = half element + small gap)
+                    const mx = b.w * 0.5 + 6, my = b.h * 0.5 + 6;
+                    if (b.x < mx)           { b.x = mx;            b.vx =  Math.abs(b.vx) * WALL_REST; b.rotV += (Math.random() - 0.5) * 1.2; }
+                    if (b.x > scene.W - mx) { b.x = scene.W - mx; b.vx = -Math.abs(b.vx) * WALL_REST; b.rotV += (Math.random() - 0.5) * 1.2; }
+                    if (b.y < my)           { b.y = my;            b.vy =  Math.abs(b.vy) * WALL_REST; b.rotV += (Math.random() - 0.5) * 1.2; }
+                    if (b.y > scene.H - my) { b.y = scene.H - my; b.vy = -Math.abs(b.vy) * WALL_REST; b.rotV += (Math.random() - 0.5) * 1.2; }
+
+                    const sqsh = 1 + spd * 0.0006;
+                    el.style.left      = (b.x - b.w * 0.5) + 'px';
+                    el.style.top       = (b.y - b.h * 0.5) + 'px';
+                    el.style.rotate    = b.rot + 'deg';
+                    el.style.scale     = sqsh.toString();
+                    el.style.translate = '';
+                });
+
+            }
+
+            function doSplat(x, y, fx, fy) {
+                splatMat.uniforms.uAspect.value = W / H;
+                splatMat.uniforms.uTex.value = velFBO.r.texture;
+                splatMat.uniforms.uPos.value.set(x, y);
+                splatMat.uniforms.uColor.value.set(fx, fy, 0);
+                splatMat.uniforms.uRadius.value = SPLAT_R;
+                runFX(splatMat, velFBO.w);
+                velFBO.swap();
+            }
+
+            const ptr = { x: 0.5, y: 0.5, px: 0.5, py: 0.5, moved: false };
+
+            window.addEventListener("mousemove", (e) => {
+                const r = canvas.getBoundingClientRect();
+                ptr.x = (e.clientX - r.left) / r.width;
+                ptr.y = 1 - (e.clientY - r.top) / r.height;
+                ptr.moved = true;
+            });
+
+            let last = performance.now();
+            function tick(now) {
+                requestAnimationFrame(tick);
+                const dt = Math.min((now - last) / 1000, 0.033);
+                last = now;
+
+                if (ptr.moved) {
+                    const dx = ptr.x - ptr.px,
+                        dy = ptr.y - ptr.py;
+                    if (dx * dx + dy * dy > 0.0000008)
+                        doSplat(ptr.x, ptr.y, dx * SPLAT_F, dy * SPLAT_F);
+                    ptr.px = ptr.x;
+                    ptr.py = ptr.y;
+                    ptr.moved = false;
+                }
+
+                // velocity advect
+                advectMat.uniforms.uVel.value = advectMat.uniforms.uSrc.value =
+                    velFBO.r.texture;
+                advectMat.uniforms.uDt.value = dt;
+                advectMat.uniforms.uDiss.value = VEL_DISS;
+                runFX(advectMat, velFBO.w);
+                velFBO.swap();
+
+                // curl + vorticity
+                curlMat.uniforms.uVel.value = velFBO.r.texture;
+                runFX(curlMat, curlRT);
+                vortMat.uniforms.uVel.value = velFBO.r.texture;
+                vortMat.uniforms.uCurlTex.value = curlRT.texture;
+                vortMat.uniforms.uDt.value = dt;
+                runFX(vortMat, velFBO.w);
+                velFBO.swap();
+
+                // pressure projection
+                divMat.uniforms.uVel.value = velFBO.r.texture;
+                runFX(divMat, divRT);
+                clearMat.uniforms.uTex.value = presFBO.r.texture;
+                runFX(clearMat, presFBO.w);
+                presFBO.swap();
+                for (let i = 0; i < ITERS; i++) {
+                    presMat.uniforms.uPres.value = presFBO.r.texture;
+                    presMat.uniforms.uDiv.value = divRT.texture;
+                    runFX(presMat, presFBO.w);
+                    presFBO.swap();
+                }
+                gradMat.uniforms.uPres.value = presFBO.r.texture;
+                gradMat.uniforms.uVel.value = velFBO.r.texture;
+                runFX(gradMat, velFBO.w);
+                velFBO.swap();
+
+                // blur velocity twice for smooth displacement
+                blurHMat.uniforms.uTex.value = velFBO.r.texture;
+                runFX(blurHMat, blurRT1);
+                blurVMat.uniforms.uTex.value = blurRT1.texture;
+                runFX(blurVMat, blurRT2);
+                blurHMat.uniforms.uTex.value = blurRT2.texture;
+                runFX(blurHMat, blurRT1);
+                blurVMat.uniforms.uTex.value = blurRT1.texture;
+                runFX(blurVMat, blurRT2);
+
+                // physics: float, bounce, repel, fluid kick
+                tickPhysics(dt);
+
+                // display: warp the noise background using blurred vel
+                displayMat.uniforms.uVelBlur.value = blurRT2.texture;
+                quad.material = displayMat;
+                renderer.setRenderTarget(null);
+                renderer.setClearColor(0x050005, 1);
+                renderer.clear(true, false, false);
+                renderer.render(fxScene, fxCam);
+            }
+
+            requestAnimationFrame(tick);
+
+            window.addEventListener("resize", () => {
+                W = window.innerWidth - FRAME * 2;
+                H = window.innerHeight - FRAME * 2;
+                renderer.setSize(W, H, false);
+            });
+        </script>
+    </body>
 </html>
