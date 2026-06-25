@@ -1707,6 +1707,36 @@ const mascotH = mascotGrid.length * P;
                 ptr.moved = true;
             });
 
+            // ── Gyroscope: tilt → virtual pointer → fluid splat ────────
+            const gyroPtr = { x: 0.5, y: 0.5, px: 0.5, py: 0.5, active: false };
+
+            function onDeviceOrientation(e) {
+                if (e.beta === null || e.gamma === null) return;
+                // gamma: -90 (left) → +90 (right) maps to x 0→1
+                // beta:  -90 (tip back) → +90 (tip forward) maps to y 1→0
+                gyroPtr.x = (Math.max(-90, Math.min(90, e.gamma)) + 90) / 180;
+                gyroPtr.y = 1 - (Math.max(-90, Math.min(90, e.beta)) + 90) / 180;
+                gyroPtr.active = true;
+            }
+
+            (function setupGyro() {
+                if (!("DeviceOrientationEvent" in window)) return;
+                // iOS 13+ requires explicit permission from a user gesture
+                if (typeof DeviceOrientationEvent.requestPermission === "function") {
+                    document.addEventListener("touchstart", function req() {
+                        document.removeEventListener("touchstart", req);
+                        DeviceOrientationEvent.requestPermission()
+                            .then((state) => {
+                                if (state === "granted")
+                                    window.addEventListener("deviceorientation", onDeviceOrientation);
+                            })
+                            .catch(() => {});
+                    }, { once: true });
+                } else {
+                    window.addEventListener("deviceorientation", onDeviceOrientation);
+                }
+            })();
+
             let last = performance.now();
             function tick(now) {
                 requestAnimationFrame(tick);
@@ -1721,6 +1751,15 @@ const mascotH = mascotGrid.length * P;
                     ptr.px = ptr.x;
                     ptr.py = ptr.y;
                     ptr.moved = false;
+                }
+
+                if (gyroPtr.active) {
+                    const dx = gyroPtr.x - gyroPtr.px;
+                    const dy = gyroPtr.y - gyroPtr.py;
+                    if (dx * dx + dy * dy > 0.0000008)
+                        doSplat(gyroPtr.x, gyroPtr.y, dx * SPLAT_F, dy * SPLAT_F);
+                    gyroPtr.px = gyroPtr.x;
+                    gyroPtr.py = gyroPtr.y;
                 }
 
                 // velocity advect
