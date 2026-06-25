@@ -1,4 +1,5 @@
 ---
+import { projects } from "../data/projects";
 ---
 
 <!-- Floating member preview -->
@@ -43,34 +44,31 @@
     <div id="menu-panel" aria-hidden="true" role="dialog" aria-label="Menu">
         <div id="work-grid">
             <p id="panel-tagline">
-                jamms is a fast moving, close-knit team of passionate designers,
-                artists, and developers. we make projects that stick.
+                jamms is a product studio that ships sticky software & games alongside brand, video, & web work for startups.
             </p>
 
-            <div class="work-item">
-                <p class="work-label">astra</p>
-                <div class="work-card"></div>
-            </div>
-
-            <a
-                href="https://etea.cafe"
-                class="work-item"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                <p class="work-label">etea.cafe</p>
-                <div class="work-card"></div>
-            </a>
-
-            <a href="/projects/spread-the-love" class="work-item">
-                <p class="work-label">spread the love</p>
-                <div class="work-card"></div>
-            </a>
-
-            <div class="work-item">
-                <p class="work-label">etea</p>
-                <div class="work-card"></div>
-            </div>
+            {projects.map((p) =>
+                p.href ? (
+                    <a
+                        href={p.href}
+                        class="work-item"
+                        target={p.external ? "_blank" : undefined}
+                        rel={p.external ? "noopener noreferrer" : undefined}
+                    >
+                        <p class="work-label">{p.label}</p>
+                        <div class="work-card">
+                            {p.preview && <img src={p.preview} alt={p.label} />}
+                        </div>
+                    </a>
+                ) : (
+                    <div class="work-item">
+                        <p class="work-label">{p.label}</p>
+                        <div class="work-card">
+                            {p.preview && <img src={p.preview} alt={p.label} />}
+                        </div>
+                    </div>
+                )
+            )}
         </div>
 
         <!-- Team panel -->
@@ -117,11 +115,10 @@
             </a>
             <p id="team-blurb">
                 jamms is a fast moving, close-knit team of passionate designers,
-                developers, and artists. we make things stick.<br />
-                for inquiries, contact <a
-                    href="mailto:fruit@jam.ms"
-                    id="team-contact">fruit@jam.ms</a
-                >
+                developers, and artists. we make things stick.
+            </p>
+            <p id="team-contact-line">
+                for inquiries, contact <button id="team-contact" aria-label="Copy email address">fruit@jam.ms</button>
             </p>
         </div>
     </div>
@@ -134,9 +131,7 @@
         <button class="tab-btn" data-tab="team" aria-pressed="false"
             >about</button
         >
-        <button class="tab-btn" data-tab="about" aria-pressed="false"
-            >blog</button
-        >
+        {/* <button class="tab-btn" data-tab="about" aria-pressed="false">blog</button> */}
         <button id="close-btn" aria-label="Close menu">
             <svg
                 width="14"
@@ -318,6 +313,20 @@
         setPanelWidthVar(w);
         gsap.set(pill, { width: w });
         syncThumb();
+    });
+
+    /* ── Copy email to clipboard ── */
+    const teamContact = document.getElementById("team-contact")!;
+    teamContact.addEventListener("click", () => {
+        navigator.clipboard.writeText("fruit@jam.ms").then(() => {
+            const prev = teamContact.textContent!;
+            teamContact.textContent = "copied!";
+            teamContact.classList.add("copied");
+            setTimeout(() => {
+                teamContact.textContent = prev;
+                teamContact.classList.remove("copied");
+            }, 1800);
+        });
     });
 
     /* ── Tab navigation ── */
