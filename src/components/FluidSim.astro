@@ -1,0 +1,530 @@
+<script type="module" is:inline>
+    import * as THREE from "https://esm.sh/three@0.170.0";
+
+    const canvas = document.getElementById("fluid-bg");
+    const FRAME = 14;
+    let W = window.innerWidth - FRAME * 2;
+    let H = window.innerHeight - FRAME * 2;
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+    renderer.setSize(W, H, false);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.autoClear = false;
+
+    const SIM = 128;
+    const ITERS = 14;
+    const VEL_DISS = 0.99;
+    const CURL_STR = 26;
+    const SPLAT_F = 5000;
+    const SPLAT_R = 0.0022;
+    const WARP_STR = 0.016;
+
+    const tType = THREE.HalfFloatType;
+    function mkRT(w, h) {
+        return new THREE.WebGLRenderTarget(w, h, {
+            minFilter: THREE.LinearFilter,
+            magFilter: THREE.LinearFilter,
+            format: THREE.RGBAFormat,
+            type: tType,
+            depthBuffer: false,
+        });
+    }
+    class FBO {
+        constructor(w, h) {
+            this.r = mkRT(w, h);
+            this.w = mkRT(w, h);
+        }
+        swap() {
+            const t = this.r;
+            this.r = this.w;
+            this.w = t;
+        }
+    }
+
+    const velFBO = new FBO(SIM, SIM);
+    const presFBO = new FBO(SIM, SIM);
+    const divRT = mkRT(SIM, SIM);
+    const curlRT = mkRT(SIM, SIM);
+    const blurRT1 = mkRT(SIM, SIM);
+    const blurRT2 = mkRT(SIM, SIM);
+
+    const fxScene = new THREE.Scene();
+    const fxCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2));
+    fxScene.add(quad);
+
+    function runFX(mat, rt) {
+        quad.material = mat;
+        renderer.setRenderTarget(rt ?? null);
+        renderer.render(fxScene, fxCam);
+    }
+
+    const VS = `varying vec2 vUv; void main(){ vUv=uv; gl_Position=vec4(position.xy,0.,1.); }`;
+    function mkMat(fs, uniforms) {
+        return new THREE.ShaderMaterial({
+            vertexShader: VS,
+            fragmentShader: "precision highp float;\n" + fs,
+            uniforms,
+            depthTest: false,
+            depthWrite: false,
+        });
+    }
+
+    const advectMat = mkMat(
+        `uniform sampler2D uVel,uSrc; uniform float uDt,uDiss; varying vec2 vUv;
+   void main(){ gl_FragColor=uDiss*texture2D(uSrc,vUv-uDt*texture2D(uVel,vUv).xy); }`,
+        {
+            uVel: { value: null },
+            uSrc: { value: null },
+            uDt: { value: 0.016 },
+            uDiss: { value: VEL_DISS },
+        },
+    );
+    const divMat = mkMat(
+        `uniform sampler2D uVel; uniform vec2 uT; varying vec2 vUv;
+   void main(){
+     float L=texture2D(uVel,vUv-vec2(uT.x,0)).x,R=texture2D(uVel,vUv+vec2(uT.x,0)).x;
+     float B=texture2D(uVel,vUv-vec2(0,uT.y)).y,T=texture2D(uVel,vUv+vec2(0,uT.y)).y;
+     gl_FragColor=vec4(0.5*(R-L+T-B),0,0,1); }`,
+        {
+            uVel: { value: null },
+            uT: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+        },
+    );
+    const presMat = mkMat(
+        `uniform sampler2D uPres,uDiv; uniform vec2 uT; varying vec2 vUv;
+   void main(){
+     float L=texture2D(uPres,vUv-vec2(uT.x,0)).x,R=texture2D(uPres,vUv+vec2(uT.x,0)).x;
+     float B=texture2D(uPres,vUv-vec2(0,uT.y)).x,T=texture2D(uPres,vUv+vec2(0,uT.y)).x;
+     gl_FragColor=vec4((L+R+B+T-texture2D(uDiv,vUv).x)*0.25,0,0,1); }`,
+        {
+            uPres: { value: null },
+            uDiv: { value: null },
+            uT: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+        },
+    );
+    const gradMat = mkMat(
+        `uniform sampler2D uPres,uVel; uniform vec2 uT; varying vec2 vUv;
+   void main(){
+     float L=texture2D(uPres,vUv-vec2(uT.x,0)).x,R=texture2D(uPres,vUv+vec2(uT.x,0)).x;
+     float B=texture2D(uPres,vUv-vec2(0,uT.y)).x,T=texture2D(uPres,vUv+vec2(0,uT.y)).x;
+     gl_FragColor=vec4(texture2D(uVel,vUv).xy-0.5*vec2(R-L,T-B),0,1); }`,
+        {
+            uPres: { value: null },
+            uVel: { value: null },
+            uT: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+        },
+    );
+    const curlMat = mkMat(
+        `uniform sampler2D uVel; uniform vec2 uT; varying vec2 vUv;
+   void main(){
+     float L=texture2D(uVel,vUv-vec2(uT.x,0)).y,R=texture2D(uVel,vUv+vec2(uT.x,0)).y;
+     float B=texture2D(uVel,vUv-vec2(0,uT.y)).x,T=texture2D(uVel,vUv+vec2(0,uT.y)).x;
+     gl_FragColor=vec4(0.5*(R-L-T+B),0,0,1); }`,
+        {
+            uVel: { value: null },
+            uT: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+        },
+    );
+    const vortMat = mkMat(
+        `uniform sampler2D uVel,uCurlTex; uniform vec2 uT; uniform float uStr,uDt; varying vec2 vUv;
+   void main(){
+     float L=abs(texture2D(uCurlTex,vUv-vec2(uT.x,0)).x),R=abs(texture2D(uCurlTex,vUv+vec2(uT.x,0)).x);
+     float B=abs(texture2D(uCurlTex,vUv-vec2(0,uT.y)).x),T=abs(texture2D(uCurlTex,vUv+vec2(0,uT.y)).x);
+     gl_FragColor=vec4(texture2D(uVel,vUv).xy+normalize(vec2(T-B,R-L)+0.0001)*uStr*texture2D(uCurlTex,vUv).x*uDt,0,1); }`,
+        {
+            uVel: { value: null },
+            uCurlTex: { value: null },
+            uT: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+            uStr: { value: CURL_STR },
+            uDt: { value: 0.016 },
+        },
+    );
+    const clearMat = mkMat(
+        `uniform sampler2D uTex; uniform float uVal; varying vec2 vUv;
+   void main(){ gl_FragColor=uVal*texture2D(uTex,vUv); }`,
+        { uTex: { value: null }, uVal: { value: 0.8 } },
+    );
+    const splatMat = mkMat(
+        `uniform sampler2D uTex; uniform vec2 uPos; uniform vec3 uColor;
+   uniform float uRadius,uAspect; varying vec2 vUv;
+   void main(){
+     vec2 p=vUv-uPos; p.x*=uAspect;
+     gl_FragColor=vec4(texture2D(uTex,vUv).rgb+exp(-dot(p,p)/uRadius)*uColor,1.0); }`,
+        {
+            uTex: { value: null },
+            uPos: { value: new THREE.Vector2() },
+            uColor: { value: new THREE.Vector3() },
+            uRadius: { value: SPLAT_R },
+            uAspect: { value: W / H },
+        },
+    );
+    const blurHMat = mkMat(
+        `uniform sampler2D uTex; uniform vec2 uTexel; varying vec2 vUv;
+   void main(){
+     float w[9]; w[0]=0.0269;w[1]=0.0654;w[2]=0.1213;w[3]=0.1747;w[4]=0.1974;
+     w[5]=0.1747;w[6]=0.1213;w[7]=0.0654;w[8]=0.0269;
+     vec4 c=vec4(0.0);
+     for(int i=0;i<9;i++) c+=texture2D(uTex,vUv+vec2(float(i-4)*uTexel.x*2.0,0.0))*w[i];
+     gl_FragColor=c; }`,
+        {
+            uTex: { value: null },
+            uTexel: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+        },
+    );
+    const blurVMat = mkMat(
+        `uniform sampler2D uTex; uniform vec2 uTexel; varying vec2 vUv;
+   void main(){
+     float w[9]; w[0]=0.0269;w[1]=0.0654;w[2]=0.1213;w[3]=0.1747;w[4]=0.1974;
+     w[5]=0.1747;w[6]=0.1213;w[7]=0.0654;w[8]=0.0269;
+     vec4 c=vec4(0.0);
+     for(int i=0;i<9;i++) c+=texture2D(uTex,vUv+vec2(0.0,float(i-4)*uTexel.y*2.0))*w[i];
+     gl_FragColor=c; }`,
+        {
+            uTex: { value: null },
+            uTexel: { value: new THREE.Vector2(1 / SIM, 1 / SIM) },
+        },
+    );
+    const displayMat = mkMat(
+        `uniform sampler2D uVelBlur;
+   uniform float uDisplace;
+   varying vec2 vUv;
+
+   float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+   float noise(vec2 p){
+     vec2 g=floor(p); vec2 f=fract(p);
+     f=f*f*(3.0-2.0*f);
+     return mix(mix(hash(g),hash(g+vec2(1,0)),f.x),
+                mix(hash(g+vec2(0,1)),hash(g+vec2(1,1)),f.x),f.y);
+   }
+
+   void main(){
+     vec2 vel = texture2D(uVelBlur, vUv).xy;
+     float mag = length(vel);
+     float mask = 1.0 - exp(-mag * 22.0);
+     vec2 warpedUV = clamp(vUv + vel * uDisplace * mask, 0.0, 1.0);
+     float n  = noise(warpedUV * 520.0) * 0.011;
+     float n2 = noise(warpedUV * 280.0 + 7.3) * 0.006;
+     vec3 base = vec3(0.0196, 0.0, 0.0196);
+     gl_FragColor = vec4(base + (n + n2), 1.0);
+   }`,
+        { uVelBlur: { value: null }, uDisplace: { value: WARP_STR } },
+    );
+
+    const ENC_SIZE = 16;
+    const velEncRT = new THREE.WebGLRenderTarget(ENC_SIZE, ENC_SIZE, {
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        format: THREE.RGBAFormat,
+        type: THREE.UnsignedByteType,
+        depthBuffer: false,
+    });
+    const velEncMat = mkMat(
+        `uniform sampler2D uVel; varying vec2 vUv;
+   void main(){
+     vec2 v = clamp(texture2D(uVel, vUv).xy * 0.005 + 0.5, 0.0, 1.0);
+     gl_FragColor = vec4(v, 0.0, 1.0);
+   }`,
+        { uVel: { value: null } },
+    );
+    const velPixels = new Uint8Array(ENC_SIZE * ENC_SIZE * 4);
+
+    const sceneEl = document.getElementById("scene");
+
+    // ── 2D Physics ──────────────────────────────────────────────────────────
+    const physicsMap = new Map();
+    let physicsT = 0;
+
+    const DRAG = 0.972;
+    const ROT_DRAG = 0.88;
+    const WALL_REST = 0.55;
+    const COLL_REST = 0.72;
+    const DRIFT_AMP = 24;
+    const FLUID_MULT = 260;
+    const MAX_SPEED = 320;
+
+    function getSceneDims() {
+        const sr = sceneEl.getBoundingClientRect();
+        return { W: sr.width, H: sr.height, left: sr.left, top: sr.top };
+    }
+
+    function ensureBody(el, scene) {
+        if (physicsMap.has(el)) return physicsMap.get(el);
+        const r = el.getBoundingClientRect();
+        const cx = r.left - scene.left + r.width * 0.5;
+        const cy = r.top - scene.top + r.height * 0.5;
+        const startRot = parseFloat(el.dataset.startRot ?? "0");
+        const body = {
+            x: cx,
+            y: cy,
+            vx: (Math.random() - 0.5) * 60,
+            vy: (Math.random() - 0.5) * 60,
+            rot: startRot,
+            rotV: (Math.random() - 0.5) * 1.5,
+            w: r.width,
+            h: r.height,
+            rad: Math.max(r.width, r.height) * 0.48,
+            phase: Math.random() * Math.PI * 2,
+        };
+        physicsMap.set(el, body);
+        el.style.animation = "none";
+        return body;
+    }
+
+    function tickPhysics(dt) {
+        velEncMat.uniforms.uVel.value = blurRT2.texture;
+        runFX(velEncMat, velEncRT);
+        renderer.readRenderTargetPixels(
+            velEncRT,
+            0,
+            0,
+            ENC_SIZE,
+            ENC_SIZE,
+            velPixels,
+        );
+
+        physicsT += dt;
+        const scene = getSceneDims();
+        const mascotEl = document.getElementById("mascot");
+        const els = [
+            ...document.querySelectorAll("#scene .cross-wrap"),
+            ...(mascotEl ? [mascotEl] : []),
+        ];
+
+        for (const k of physicsMap.keys()) {
+            if (!els.includes(k)) physicsMap.delete(k);
+        }
+
+        const bodies = els.map((el) => ({ el, b: ensureBody(el, scene) }));
+
+        bodies.forEach(({ b }) => {
+            const u = Math.max(0, Math.min(1, b.x / scene.W));
+            const v = Math.max(0, Math.min(1, 1 - b.y / scene.H));
+            const px = Math.min(ENC_SIZE - 1, Math.floor(u * ENC_SIZE));
+            const py = Math.min(ENC_SIZE - 1, Math.floor(v * ENC_SIZE));
+            const idx = (py * ENC_SIZE + px) * 4;
+            const fvx = (velPixels[idx] / 255.0 - 0.5) / 0.005;
+            const fvy = (velPixels[idx + 1] / 255.0 - 0.5) / 0.005;
+            b.vx += fvx * FLUID_MULT * dt;
+            b.vy -= fvy * FLUID_MULT * dt;
+            b.rotV += fvx * 0.5 * dt;
+        });
+
+        bodies.forEach(({ b }) => {
+            b.vx += Math.sin(physicsT * 0.65 + b.phase) * DRIFT_AMP * dt;
+            b.vy += Math.cos(physicsT * 0.48 + b.phase + 1.3) * DRIFT_AMP * dt;
+        });
+
+        for (let i = 0; i < bodies.length; i++) {
+            for (let j = i + 1; j < bodies.length; j++) {
+                const a = bodies[i].b,
+                    b = bodies[j].b;
+                const dx = a.x - b.x,
+                    dy = a.y - b.y;
+                const minDist = a.rad + b.rad;
+                const dist2 = dx * dx + dy * dy;
+                if (dist2 < minDist * minDist && dist2 > 0.0001) {
+                    const dist = Math.sqrt(dist2);
+                    const nx = dx / dist,
+                        ny = dy / dist;
+                    const overlap = minDist - dist;
+                    a.x += nx * overlap * 0.5;
+                    a.y += ny * overlap * 0.5;
+                    b.x -= nx * overlap * 0.5;
+                    b.y -= ny * overlap * 0.5;
+                    const relVn = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+                    if (relVn < 0) {
+                        const impulse = -(1 + COLL_REST) * relVn * 0.5;
+                        a.vx += impulse * nx;
+                        a.vy += impulse * ny;
+                        b.vx -= impulse * nx;
+                        b.vy -= impulse * ny;
+                        a.rotV += nx * 0.8 * (Math.random() - 0.5);
+                        b.rotV -= nx * 0.8 * (Math.random() - 0.5);
+                    }
+                }
+            }
+        }
+
+        bodies.forEach(({ el, b }) => {
+            b.vx *= DRAG;
+            b.vy *= DRAG;
+            b.rotV *= ROT_DRAG;
+            const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+            if (spd > MAX_SPEED) {
+                b.vx *= MAX_SPEED / spd;
+                b.vy *= MAX_SPEED / spd;
+            }
+            b.x += b.vx * dt;
+            b.y += b.vy * dt;
+            b.rot += b.rotV * dt * 35;
+            const mx = b.w * 0.5 + 6,
+                my = b.h * 0.5 + 6;
+            if (b.x < mx) {
+                b.x = mx;
+                b.vx = Math.abs(b.vx) * WALL_REST;
+                b.rotV += (Math.random() - 0.5) * 1.2;
+            }
+            if (b.x > scene.W - mx) {
+                b.x = scene.W - mx;
+                b.vx = -Math.abs(b.vx) * WALL_REST;
+                b.rotV += (Math.random() - 0.5) * 1.2;
+            }
+            if (b.y < my) {
+                b.y = my;
+                b.vy = Math.abs(b.vy) * WALL_REST;
+                b.rotV += (Math.random() - 0.5) * 1.2;
+            }
+            if (b.y > scene.H - my) {
+                b.y = scene.H - my;
+                b.vy = -Math.abs(b.vy) * WALL_REST;
+                b.rotV += (Math.random() - 0.5) * 1.2;
+            }
+            const sqsh = 1 + spd * 0.0006;
+            el.style.left = b.x - b.w * 0.5 + "px";
+            el.style.top = b.y - b.h * 0.5 + "px";
+            el.style.rotate = b.rot + "deg";
+            el.style.scale = sqsh.toString();
+            el.style.translate = "";
+        });
+    }
+
+    function doSplat(x, y, fx, fy) {
+        splatMat.uniforms.uAspect.value = W / H;
+        splatMat.uniforms.uTex.value = velFBO.r.texture;
+        splatMat.uniforms.uPos.value.set(x, y);
+        splatMat.uniforms.uColor.value.set(fx, fy, 0);
+        splatMat.uniforms.uRadius.value = SPLAT_R;
+        runFX(splatMat, velFBO.w);
+        velFBO.swap();
+    }
+
+    // ── Mouse pointer ────────────────────────────────────────────────────────
+    const ptr = { x: 0.5, y: 0.5, px: 0.5, py: 0.5, moved: false };
+
+    window.addEventListener("mousemove", (e) => {
+        const r = canvas.getBoundingClientRect();
+        ptr.x = (e.clientX - r.left) / r.width;
+        ptr.y = 1 - (e.clientY - r.top) / r.height;
+        ptr.moved = true;
+    });
+
+    // ── Gyroscope: tilt → virtual pointer → fluid splat ─────────────────────
+    const gyroPtr = { x: 0.5, y: 0.5, px: 0.5, py: 0.5, active: false };
+
+    function onDeviceOrientation(e) {
+        if (e.beta === null || e.gamma === null) return;
+        gyroPtr.x = (Math.max(-90, Math.min(90, e.gamma)) + 90) / 180;
+        gyroPtr.y = 1 - (Math.max(-90, Math.min(90, e.beta)) + 90) / 180;
+        gyroPtr.active = true;
+    }
+
+    (function setupGyro() {
+        if (!("DeviceOrientationEvent" in window)) return;
+        if (typeof DeviceOrientationEvent.requestPermission === "function") {
+            document.addEventListener(
+                "touchstart",
+                function req() {
+                    document.removeEventListener("touchstart", req);
+                    DeviceOrientationEvent.requestPermission()
+                        .then((state) => {
+                            if (state === "granted")
+                                window.addEventListener(
+                                    "deviceorientation",
+                                    onDeviceOrientation,
+                                );
+                        })
+                        .catch(() => {});
+                },
+                { once: true },
+            );
+        } else {
+            window.addEventListener("deviceorientation", onDeviceOrientation);
+        }
+    })();
+
+    // ── Render loop ──────────────────────────────────────────────────────────
+    let last = performance.now();
+    function tick(now) {
+        requestAnimationFrame(tick);
+        const dt = Math.min((now - last) / 1000, 0.033);
+        last = now;
+
+        if (ptr.moved) {
+            const dx = ptr.x - ptr.px,
+                dy = ptr.y - ptr.py;
+            if (dx * dx + dy * dy > 0.0000008)
+                doSplat(ptr.x, ptr.y, dx * SPLAT_F, dy * SPLAT_F);
+            ptr.px = ptr.x;
+            ptr.py = ptr.y;
+            ptr.moved = false;
+        }
+
+        if (gyroPtr.active) {
+            const dx = gyroPtr.x - gyroPtr.px;
+            const dy = gyroPtr.y - gyroPtr.py;
+            if (dx * dx + dy * dy > 0.0000008)
+                doSplat(gyroPtr.x, gyroPtr.y, dx * SPLAT_F, dy * SPLAT_F);
+            gyroPtr.px = gyroPtr.x;
+            gyroPtr.py = gyroPtr.y;
+        }
+
+        advectMat.uniforms.uVel.value = advectMat.uniforms.uSrc.value =
+            velFBO.r.texture;
+        advectMat.uniforms.uDt.value = dt;
+        advectMat.uniforms.uDiss.value = VEL_DISS;
+        runFX(advectMat, velFBO.w);
+        velFBO.swap();
+
+        curlMat.uniforms.uVel.value = velFBO.r.texture;
+        runFX(curlMat, curlRT);
+        vortMat.uniforms.uVel.value = velFBO.r.texture;
+        vortMat.uniforms.uCurlTex.value = curlRT.texture;
+        vortMat.uniforms.uDt.value = dt;
+        runFX(vortMat, velFBO.w);
+        velFBO.swap();
+
+        divMat.uniforms.uVel.value = velFBO.r.texture;
+        runFX(divMat, divRT);
+        clearMat.uniforms.uTex.value = presFBO.r.texture;
+        runFX(clearMat, presFBO.w);
+        presFBO.swap();
+        for (let i = 0; i < ITERS; i++) {
+            presMat.uniforms.uPres.value = presFBO.r.texture;
+            presMat.uniforms.uDiv.value = divRT.texture;
+            runFX(presMat, presFBO.w);
+            presFBO.swap();
+        }
+        gradMat.uniforms.uPres.value = presFBO.r.texture;
+        gradMat.uniforms.uVel.value = velFBO.r.texture;
+        runFX(gradMat, velFBO.w);
+        velFBO.swap();
+
+        blurHMat.uniforms.uTex.value = velFBO.r.texture;
+        runFX(blurHMat, blurRT1);
+        blurVMat.uniforms.uTex.value = blurRT1.texture;
+        runFX(blurVMat, blurRT2);
+        blurHMat.uniforms.uTex.value = blurRT2.texture;
+        runFX(blurHMat, blurRT1);
+        blurVMat.uniforms.uTex.value = blurRT1.texture;
+        runFX(blurVMat, blurRT2);
+
+        tickPhysics(dt);
+
+        displayMat.uniforms.uVelBlur.value = blurRT2.texture;
+        quad.material = displayMat;
+        renderer.setRenderTarget(null);
+        renderer.setClearColor(0x050005, 1);
+        renderer.clear(true, false, false);
+        renderer.render(fxScene, fxCam);
+    }
+
+    requestAnimationFrame(tick);
+
+    window.addEventListener("resize", () => {
+        W = window.innerWidth - FRAME * 2;
+        H = window.innerHeight - FRAME * 2;
+        renderer.setSize(W, H, false);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    });
+</script>
