@@ -1,10 +1,20 @@
 ---
-import { projects } from "../data/projects";
+import { projects, TAG_COLORS, type ProjectTag } from "../data/projects";
+
+const allTags = Array.from(
+    new Set(projects.flatMap((p) => p.tags ?? [])),
+) as ProjectTag[];
 ---
 
 <!-- Floating member preview -->
 <div id="member-preview" aria-hidden="true">
     <img id="member-preview-img" src="" alt="" />
+</div>
+
+<!-- Floating work preview -->
+<div id="work-preview" aria-hidden="true">
+    <img id="work-preview-img" src="" alt="" />
+    <video id="work-preview-video" muted loop playsinline></video>
 </div>
 
 <!-- Nav pill / panel -->
@@ -43,32 +53,53 @@ import { projects } from "../data/projects";
     <!-- Full menu panel (revealed after morph) -->
     <div id="menu-panel" aria-hidden="true" role="dialog" aria-label="Menu">
         <div id="work-grid">
-            <p id="panel-tagline">
-                jamms is a product studio that ships sticky software & games alongside brand, video, & web work for startups.
-            </p>
+            <div id="tag-filter-row" role="group" aria-label="Filter work by type">
+                <button class="tag-filter-btn active" data-filter="all">all</button>
+                {allTags.map((tag) => (
+                    <button class="tag-filter-btn" data-filter={tag}>
+                        {tag}
+                    </button>
+                ))}
+            </div>
 
-            {projects.map((p) =>
-                p.href ? (
+            {projects.map((p) => {
+                const tags = p.tags && p.tags.length > 0 && (
+                    <span class="work-tags">
+                        {p.tags.map((tag) => (
+                            <span
+                                class="tag-chip"
+                                style={`background:${TAG_COLORS[tag]}`}
+                            >
+                                {tag}
+                            </span>
+                        ))}
+                    </span>
+                );
+                return p.href ? (
                     <a
                         href={p.href}
                         class="work-item"
+                        data-tags={p.tags?.join(",") ?? ""}
+                        data-preview-img={p.preview ?? ""}
+                        data-preview-video={p.video ?? ""}
                         target={p.external ? "_blank" : undefined}
                         rel={p.external ? "noopener noreferrer" : undefined}
                     >
-                        <p class="work-label">{p.label}</p>
-                        <div class="work-card">
-                            {p.preview && <img src={p.preview} alt={p.label} />}
-                        </div>
+                        <span class="work-label">{p.label}</span>
+                        {tags}
                     </a>
                 ) : (
-                    <div class="work-item">
-                        <p class="work-label">{p.label}</p>
-                        <div class="work-card">
-                            {p.preview && <img src={p.preview} alt={p.label} />}
-                        </div>
+                    <div
+                        class="work-item"
+                        data-tags={p.tags?.join(",") ?? ""}
+                        data-preview-img={p.preview ?? ""}
+                        data-preview-video={p.video ?? ""}
+                    >
+                        <span class="work-label">{p.label}</span>
+                        {tags}
                     </div>
-                )
-            )}
+                );
+            })}
         </div>
 
         <!-- Team panel -->
@@ -299,6 +330,15 @@ import { projects } from "../data/projects";
     pill.addEventListener("click", () => {
         if (!isOpen) openMenu();
     });
+
+    /* ── Auto-open once, after a delay, if the visitor hasn't touched it ── */
+    const AUTO_OPEN_DELAY = 1000;
+    const autoOpenTimer = setTimeout(() => {
+        if (!isOpen) openMenu();
+    }, AUTO_OPEN_DELAY);
+    pill.addEventListener("click", () => clearTimeout(autoOpenTimer), {
+        once: true,
+    });
     closeBtn.addEventListener("click", (e) => {
         e.stopPropagation();
         closeMenu();
@@ -326,6 +366,99 @@ import { projects } from "../data/projects";
                 teamContact.textContent = prev;
                 teamContact.classList.remove("copied");
             }, 1800);
+        });
+    });
+
+    /* ── Work filter (FLIP: only transform + opacity animate) ── */
+    const filterBtns = document.querySelectorAll<HTMLButtonElement>(
+        ".tag-filter-btn",
+    );
+    const workItems = Array.from(
+        document.querySelectorAll<HTMLElement>(".work-item"),
+    );
+
+    function applyFilter(filter: string) {
+        // FIRST: capture positions of currently visible items
+        const firstRects = new Map<HTMLElement, DOMRect>();
+        workItems.forEach((item) => {
+            if (item.style.display !== "none") {
+                firstRects.set(item, item.getBoundingClientRect());
+            }
+        });
+
+        const willShow = new Set<HTMLElement>();
+        workItems.forEach((item) => {
+            const tags = item.dataset.tags?.split(",") ?? [];
+            if (filter === "all" || tags.includes(filter)) willShow.add(item);
+        });
+
+        const exiting = workItems.filter(
+            (item) => firstRects.has(item) && !willShow.has(item),
+        );
+        const entering = workItems.filter(
+            (item) => !firstRects.has(item) && willShow.has(item),
+        );
+        const staying = workItems.filter(
+            (item) => firstRects.has(item) && willShow.has(item),
+        );
+
+        const tl = gsap.timeline({ onComplete: syncThumb });
+
+        // Exiting items fade+scale down first (ease-out: leaving the screen)
+        exiting.forEach((item) => {
+            tl.to(
+                item,
+                { opacity: 0, scale: 0.96, duration: 0.15 * dur || 0.001, ease: "power2.out" },
+                0,
+            );
+        });
+
+        tl.call(
+            () => {
+                // LAST: apply visibility, then reconcile positions
+                workItems.forEach((item) => {
+                    item.style.display = willShow.has(item) ? "" : "none";
+                });
+
+                // Staying items: invert + play the resulting shift (on-screen movement → ease-in-out)
+                staying.forEach((item) => {
+                    const first = firstRects.get(item)!;
+                    const last = item.getBoundingClientRect();
+                    const dy = first.top - last.top;
+                    if (Math.abs(dy) > 0.5) {
+                        gsap.fromTo(
+                            item,
+                            { y: dy },
+                            { y: 0, duration: 0.32 * dur || 0.001, ease: "power2.inOut" },
+                        );
+                    }
+                });
+
+                // Entering items fade+scale in, staggered (ease-out: entering the screen)
+                entering.forEach((item, i) => {
+                    gsap.fromTo(
+                        item,
+                        { opacity: 0, scale: 0.95 },
+                        {
+                            opacity: 1,
+                            scale: 1,
+                            duration: 0.25 * dur || 0.001,
+                            delay: (0.05 + i * 0.04) * dur,
+                            ease: "power3.out",
+                        },
+                    );
+                });
+            },
+            undefined,
+            0.15 * dur || 0.001,
+        );
+    }
+
+    filterBtns.forEach((btn) => {
+        btn.addEventListener("click", () => {
+            filterBtns.forEach((b) => b.classList.remove("active"));
+            btn.classList.add("active");
+            applyFilter(btn.dataset.filter!);
         });
     });
 
@@ -376,19 +509,28 @@ import { projects } from "../data/projects";
         lastMouseY = e.clientY;
     });
 
+    const PREVIEW_OFFSET_X = 28;
+    const PREVIEW_OFFSET_Y = -70;
+    const followX = gsap.quickTo(memberPreview, "left", {
+        duration: 0.35,
+        ease: "power3.out",
+    });
+    const followY = gsap.quickTo(memberPreview, "top", {
+        duration: 0.35,
+        ease: "power3.out",
+    });
+
     document.querySelectorAll(".team-row").forEach((row) => {
-        row.addEventListener("mouseenter", () => {
+        row.addEventListener("mouseenter", (e) => {
             const src = (row as HTMLElement).dataset.avatar!;
-            const rowRect = row.getBoundingClientRect();
-            const pillRect = pill.getBoundingClientRect();
             memberPreviewImg.src = src;
             memberPreviewImg.alt = (
                 row.querySelector(".team-name") as HTMLElement
             ).textContent!;
 
             gsap.set(memberPreview, {
-                left: pillRect.left - 140,
-                top: rowRect.top - 10,
+                left: (e as MouseEvent).clientX + PREVIEW_OFFSET_X,
+                top: (e as MouseEvent).clientY + PREVIEW_OFFSET_Y,
             });
             if (previewTween) previewTween.kill();
             previewTween = gsap.fromTo(
@@ -401,6 +543,11 @@ import { projects } from "../data/projects";
                     ease: "elastic.out(0.85, 0.6)",
                 },
             );
+        });
+
+        row.addEventListener("mousemove", (e) => {
+            followX((e as MouseEvent).clientX + PREVIEW_OFFSET_X);
+            followY((e as MouseEvent).clientY + PREVIEW_OFFSET_Y);
         });
 
         row.addEventListener("mouseleave", () => {
@@ -420,6 +567,122 @@ import { projects } from "../data/projects";
         });
     });
 
+    /* ── Work preview on hover ── */
+    const workPreview = document.getElementById("work-preview")!;
+    const workPreviewImg = document.getElementById(
+        "work-preview-img",
+    ) as HTMLImageElement;
+    const workPreviewVideo = document.getElementById(
+        "work-preview-video",
+    ) as HTMLVideoElement;
+
+    const WORK_PREVIEW_OFFSET_X = 28;
+    const WORK_PREVIEW_OFFSET_Y = -160;
+    const workFollowX = gsap.quickTo(workPreview, "left", {
+        duration: 0.35,
+        ease: "power3.out",
+    });
+    const workFollowY = gsap.quickTo(workPreview, "top", {
+        duration: 0.35,
+        ease: "power3.out",
+    });
+    let workPreviewTween: gsap.core.Tween | gsap.core.Timeline | null = null;
+    let workPreviewActive = false;
+    let workLeaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+    document.querySelectorAll<HTMLElement>(".work-item").forEach((item) => {
+        const previewImg = item.dataset.previewImg;
+        const previewVideo = item.dataset.previewVideo;
+        if (!previewImg && !previewVideo) return;
+
+        item.addEventListener("mouseenter", (e) => {
+            if (workLeaveTimer) {
+                clearTimeout(workLeaveTimer);
+                workLeaveTimer = null;
+            }
+
+            if (previewVideo) {
+                workPreview.classList.add("showing-video");
+                workPreview.classList.remove("showing-img");
+                if (workPreviewVideo.src !== previewVideo) {
+                    workPreviewVideo.src = previewVideo;
+                }
+                workPreviewVideo.play().catch(() => {});
+            } else if (previewImg) {
+                workPreview.classList.add("showing-img");
+                workPreview.classList.remove("showing-video");
+                workPreviewImg.src = previewImg;
+                workPreviewImg.alt = item.querySelector(".work-label")!
+                    .textContent!;
+                workPreviewVideo.pause();
+            }
+
+            if (workPreviewTween) workPreviewTween.kill();
+
+            if (!workPreviewActive) {
+                // First hover in this session: full entrance from the cursor.
+                gsap.set(workPreview, {
+                    left: (e as MouseEvent).clientX + WORK_PREVIEW_OFFSET_X,
+                    top: (e as MouseEvent).clientY + WORK_PREVIEW_OFFSET_Y,
+                });
+                workPreviewTween = gsap.fromTo(
+                    workPreview,
+                    { opacity: 0, scale: 0.55 },
+                    {
+                        opacity: 1,
+                        scale: 1,
+                        duration: 1.0 * dur || 0.001,
+                        ease: "elastic.out(0.85, 0.6)",
+                    },
+                );
+                workPreviewActive = true;
+            } else {
+                // Switching directly between items: stay visible, just glide + swap content.
+                workFollowX((e as MouseEvent).clientX + WORK_PREVIEW_OFFSET_X);
+                workFollowY((e as MouseEvent).clientY + WORK_PREVIEW_OFFSET_Y);
+                workPreviewTween = gsap.to(workPreview, {
+                    opacity: 1,
+                    scale: 1,
+                    duration: 0.15 * dur || 0.001,
+                    ease: "power2.out",
+                });
+            }
+        });
+
+        item.addEventListener("mousemove", (e) => {
+            workFollowX((e as MouseEvent).clientX + WORK_PREVIEW_OFFSET_X);
+            workFollowY((e as MouseEvent).clientY + WORK_PREVIEW_OFFSET_Y);
+        });
+
+        item.addEventListener("mouseleave", () => {
+            // Delay the fade-out briefly so moving straight into the next
+            // row cancels it instead of replaying the entrance animation.
+            workLeaveTimer = setTimeout(() => {
+                workPreviewActive = false;
+                if (workPreviewTween) workPreviewTween.kill();
+                const tl = gsap.timeline({
+                    onComplete: () => workPreviewVideo.pause(),
+                });
+                tl.to(
+                    workPreview,
+                    { opacity: 0, duration: 0.1 * dur || 0.001, ease: "none" },
+                    0,
+                );
+                tl.to(
+                    workPreview,
+                    {
+                        scale: 0.8,
+                        duration: 0.38 * dur || 0.001,
+                        ease: "circ.out",
+                    },
+                    0,
+                );
+                workPreviewTween = tl;
+                workLeaveTimer = null;
+            }, 60);
+        });
+    });
+
     /* ── Click-to-spawn pixels on the black stage ── */
     const PALETTE = [
         "#E8850A",
@@ -430,36 +693,34 @@ import { projects } from "../data/projects";
         "#FF28A8",
         "#28E0C8",
     ];
-    const SHAPES = [
-        '<path fill-rule="evenodd" d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z M32 32h14v14H32Z"/>',
-        '<path d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z"/>',
-        '<rect x="0" y="0" width="26" height="26"/><rect x="52" y="0" width="26" height="26"/><rect x="26" y="26" width="26" height="26"/><rect x="0" y="52" width="26" height="26"/><rect x="52" y="52" width="26" height="26"/>',
-    ];
     const MAX_SPAWNED = 40;
     const spawned: HTMLElement[] = [];
-    let spawnCount = 0;
+
+    function whenGooReady(cb: () => void) {
+        if (typeof window.__gooSpawnHtml === "function") cb();
+        else requestAnimationFrame(() => whenGooReady(cb));
+    }
 
     function spawnPixel(x: number, y: number) {
+        if (typeof window.__gooSpawnHtml !== "function") return;
         const color = PALETTE[Math.floor(Math.random() * PALETTE.length)];
-        const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-        const size = Math.round(36 + Math.random() * 40);
-        const id = "choke-u" + ++spawnCount;
+        const keys = window.__gooShapeKeys ?? ["cross", "plus", "diamond"];
+        const shapeKey = keys[Math.floor(Math.random() * keys.length)];
+        const svgHtml = window.__gooSpawnHtml(color, shapeKey);
 
         const wrap = document.createElement("div");
         wrap.className = "cross-wrap spawned";
+        wrap.dataset.goo = "";
         wrap.style.position = "absolute";
         wrap.style.willChange = "transform";
-        wrap.style.left = x - size / 2 + "px";
-        wrap.style.top = y - size / 2 + "px";
-        wrap.innerHTML =
-            `<svg width="${size}" height="${size}" viewBox="0 0 78 78" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" overflow="visible">` +
-            `<defs><filter id="${id}" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">` +
-            `<feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>` +
-            `<feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -8"/>` +
-            `</filter></defs>` +
-            `<g fill="${color}" filter="url(#${id})">${shape}</g>` +
-            `</svg>`;
+        wrap.innerHTML = svgHtml;
+        const svg = wrap.querySelector("svg");
+        const w = svg ? parseFloat(svg.getAttribute("width") ?? "78") : 78;
+        const h = svg ? parseFloat(svg.getAttribute("height") ?? "78") : 78;
+        wrap.style.left = x - w / 2 + "px";
+        wrap.style.top = y - h / 2 + "px";
         scene.appendChild(wrap);
+        window.__gooRegister?.(wrap);
         spawned.push(wrap);
 
         gsap.fromTo(
@@ -483,24 +744,28 @@ import { projects } from "../data/projects";
                 opacity: 0,
                 scale: 0.5,
                 duration: 0.3 * dur || 0.001,
-                onComplete: () => oldest.remove(),
+                onComplete: () => {
+                    window.__gooUnregister?.(oldest);
+                    oldest.remove();
+                },
             });
         }
     }
 
     // Burst-spawn on load
-    (function initialBurst() {
+    whenGooReady(function initialBurst() {
         const rect = scene.getBoundingClientRect();
         const W = rect.width,
             H = rect.height;
-        for (let i = 0; i < 22; i++) {
+        for (let i = 0; i < 4; i++) {
             const x = 60 + Math.random() * (W - 120);
             const y = 60 + Math.random() * (H - 120);
             setTimeout(() => spawnPixel(x, y), i * 40);
         }
-    })();
+    });
 
     stage.addEventListener("click", (e) => {
+        if (window.__gooDidDrag?.()) return;
         const rect = scene.getBoundingClientRect();
         spawnPixel(e.clientX - rect.left, e.clientY - rect.top);
     });

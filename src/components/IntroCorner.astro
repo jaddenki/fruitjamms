@@ -1,0 +1,106 @@
+---
+---
+
+<div id="intro-corner" aria-hidden="false">
+    <a
+        id="intro-cta"
+        href="https://cal.com/jadden/b"
+        target="_blank"
+        rel="noopener noreferrer"
+    >
+        book a call
+    </a>
+</div>
+
+<style>
+    #intro-corner {
+        position: fixed;
+        top: calc(var(--frame) + 24px);
+        left: calc(var(--frame) + 24px);
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        pointer-events: none;
+    }
+
+    #intro-cta {
+        font-family: "Authentic Sans", sans-serif;
+        font-weight: bold;
+        font-size: 14px;
+        letter-spacing: -0.05em;
+        white-space: nowrap;
+        border-radius: 999px;
+        padding: 10px 18px;
+        background: #ff28a8;
+        color: #ffffff;
+        text-decoration: none;
+        pointer-events: auto;
+        transition: transform 0.35s cubic-bezier(0.23, 1, 0.32, 1);
+    }
+
+    #intro-cta:hover {
+        transform: translateY(-3px) scale(1.04);
+    }
+
+    #intro-cta:active {
+        transform: translateY(-1px) scale(0.96);
+        transition: transform 0.12s ease-out;
+    }
+
+    @media (max-width: 480px) {
+        #intro-cta {
+            font-size: 13px;
+            padding: 8px 16px;
+        }
+    }
+</style>
+
+<script>
+    import { gsap } from "gsap";
+
+    const MAGNET_RADIUS = 70;
+    const STRENGTH = 0.4;
+    const reducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    if (!reducedMotion) {
+        const magnets = Array.from(
+            document.querySelectorAll<HTMLElement>("#intro-cta"),
+        ).map((el) => ({
+            el,
+            setX: gsap.quickTo(el, "x", { duration: 0.5, ease: "power3.out" }),
+            setY: gsap.quickTo(el, "y", { duration: 0.5, ease: "power3.out" }),
+            setScale: gsap.quickTo(el, "scale", {
+                duration: 0.4,
+                ease: "power3.out",
+            }),
+            pulled: false,
+        }));
+
+        document.addEventListener("mousemove", (e) => {
+            for (const m of magnets) {
+                const rect = m.el.getBoundingClientRect();
+                const cx = rect.left + rect.width / 2;
+                const cy = rect.top + rect.height / 2;
+                const dx = e.clientX - cx;
+                const dy = e.clientY - cy;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist < MAGNET_RADIUS) {
+                    m.setX(dx * STRENGTH);
+                    m.setY(dy * STRENGTH);
+                    m.setScale(1.06);
+                    m.pulled = true;
+                } else if (m.pulled) {
+                    m.setX(0);
+                    m.setY(0);
+                    m.setScale(1);
+                    m.pulled = false;
+                }
+            }
+        });
+    }
+</script>

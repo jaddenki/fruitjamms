@@ -1,0 +1,303 @@
+<!-- Shared gooey filter + per-pixel physics for all scene shapes -->
+<svg width="0" height="0" style="position:absolute;pointer-events:none;" aria-hidden="true">
+    <defs>
+        <filter id="gooey" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b"/>
+            <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9"/>
+        </filter>
+    </defs>
+</svg>
+
+<script>
+    import {
+        SHAPE_GRIDS,
+        buildGooSvg,
+        type ShapeKey,
+    } from "../lib/gooGrids";
+
+    const SPRING = 0.1;
+    const DAMP = 0.78;
+    const NEIGHBOR_PULL = 0.045;
+    const GRAB_RADIUS = 52;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    type GooPixel = {
+        rect: SVGRectElement;
+        hx: number;
+        hy: number;
+        cell: number;
+        ox: number;
+        oy: number;
+        vx: number;
+        vy: number;
+    };
+
+    type GooCluster = {
+        wrap: HTMLElement;
+        svg: SVGSVGElement;
+        pixels: GooPixel[];
+    };
+
+    type GrabEntry = { px: GooPixel; offX: number; offY: number };
+
+    const clusters: GooCluster[] = [];
+    const clusterByEl = new Map<HTMLElement, GooCluster>();
+    let grab: { cluster: GooCluster; entries: GrabEntry[] } | null = null;
+    let didDrag = false;
+
+    function readPixels(wrap: HTMLElement): GooPixel[] {
+        const pixels: GooPixel[] = [];
+        wrap.querySelectorAll<SVGRectElement>(".goo-pixel").forEach((rect) => {
+            pixels.push({
+                rect,
+                hx: parseFloat(rect.dataset.hx ?? "0"),
+                hy: parseFloat(rect.dataset.hy ?? "0"),
+                cell: parseFloat(rect.dataset.cell ?? "36"),
+                ox: 0,
+                oy: 0,
+                vx: 0,
+                vy: 0,
+            });
+        });
+        return pixels;
+    }
+
+    function applyTransform(px: GooPixel) {
+        const t =
+            px.ox || px.oy
+                ? `translate(${px.ox.toFixed(2)},${px.oy.toFixed(2)})`
+                : "";
+        if (t) px.rect.setAttribute("transform", t);
+        else px.rect.removeAttribute("transform");
+    }
+
+    function pixelCenter(px: GooPixel) {
+        const half = px.cell * 0.5;
+        return { x: px.hx + px.ox + half, y: px.hy + px.oy + half };
+    }
+
+    function register(wrap: HTMLElement) {
+        if (clusterByEl.has(wrap)) return;
+        const svg = wrap.querySelector<SVGSVGElement>("svg");
+        if (!svg) return;
+        const cluster: GooCluster = { wrap, svg, pixels: readPixels(wrap) };
+        clusters.push(cluster);
+        clusterByEl.set(wrap, cluster);
+    }
+
+    function unregister(wrap: HTMLElement) {
+        const cluster = clusterByEl.get(wrap);
+        if (!cluster) return;
+        const i = clusters.indexOf(cluster);
+        if (i >= 0) clusters.splice(i, 1);
+        clusterByEl.delete(wrap);
+        if (grab?.cluster === cluster) grab = null;
+    }
+
+    function registerAll() {
+        document.querySelectorAll<HTMLElement>("#scene [data-goo]").forEach(register);
+    }
+
+    function localPoint(cluster: GooCluster, clientX: number, clientY: number) {
+        const pt = cluster.svg.createSVGPoint();
+        pt.x = clientX;
+        pt.y = clientY;
+        const ctm = cluster.svg.getScreenCTM();
+        if (!ctm) return null;
+        return pt.matrixTransform(ctm.inverse());
+    }
+
+    function hitCluster(clientX: number, clientY: number) {
+        for (let i = clusters.length - 1; i >= 0; i--) {
+            const cluster = clusters[i];
+            const r = cluster.wrap.getBoundingClientRect();
+            if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) {
+                return cluster;
+            }
+        }
+        return null;
+    }
+
+    function pickGrabEntries(cluster: GooCluster, localX: number, localY: number): GrabEntry[] {
+        const hits = cluster.pixels
+            .map((px) => {
+                const c = pixelCenter(px);
+                return { px, dist: Math.hypot(c.x - localX, c.y - localY) };
+            })
+            .filter((h) => h.dist < GRAB_RADIUS)
+            .sort((a, b) => a.dist - b.dist);
+
+        if (!hits.length) {
+            const nearest = cluster.pixels
+                .map((px) => {
+                    const c = pixelCenter(px);
+                    return { px, dist: Math.hypot(c.x - localX, c.y - localY) };
+                })
+                .sort((a, b) => a.dist - b.dist)[0];
+            if (!nearest) return [];
+            hits.push(nearest);
+        }
+
+        return hits.slice(0, 2).map(({ px }) => {
+            const c = pixelCenter(px);
+            return { px, offX: localX - c.x, offY: localY - c.y };
+        });
+    }
+
+    function dragGrabbed(clientX: number, clientY: number) {
+        if (!grab) return;
+        const local = localPoint(grab.cluster, clientX, clientY);
+        if (!local) return;
+
+        for (const { px, offX, offY } of grab.entries) {
+            const half = px.cell * 0.5;
+            px.ox = local.x - px.hx - half - offX;
+            px.oy = local.y - px.hy - half - offY;
+            px.vx = 0;
+            px.vy = 0;
+            applyTransform(px);
+        }
+    }
+
+    function releaseGrab(e: PointerEvent) {
+        if (!grab) return;
+        if (grab.cluster.wrap.hasPointerCapture(e.pointerId)) {
+            grab.cluster.wrap.releasePointerCapture(e.pointerId);
+        }
+        grab.cluster.wrap.classList.remove("is-pulling");
+        grab = null;
+    }
+
+    function onPointerDown(e: PointerEvent) {
+        if (e.button !== 0) return;
+        // Only hijack the pointer if it's actually landing inside the scene —
+        // UI like the nav pill/menu panel sits outside #scene but can
+        // visually overlap a goo cluster's bounding box, which would
+        // otherwise steal clicks (e.g. the panel's close button).
+        if (!(e.target instanceof Element) || !e.target.closest("#scene")) return;
+        const cluster = hitCluster(e.clientX, e.clientY);
+        if (!cluster) return;
+
+        const local = localPoint(cluster, e.clientX, e.clientY);
+        if (!local) return;
+
+        const entries = pickGrabEntries(cluster, local.x, local.y);
+        if (!entries.length) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        didDrag = false;
+        grab = { cluster, entries };
+        cluster.wrap.classList.add("is-pulling");
+        cluster.wrap.setPointerCapture(e.pointerId);
+        dragGrabbed(e.clientX, e.clientY);
+    }
+
+    function onPointerMove(e: PointerEvent) {
+        if (!grab) return;
+        didDrag = true;
+        dragGrabbed(e.clientX, e.clientY);
+    }
+
+    function onPointerUp(e: PointerEvent) {
+        releaseGrab(e);
+        requestAnimationFrame(() => {
+            didDrag = false;
+        });
+    }
+
+    function tickGoo(dt: number) {
+        if (reducedMotion) return;
+
+        const grabbed = new Set(grab?.entries.map((e) => e.px) ?? []);
+
+        for (const cluster of clusters) {
+            const grabCenters = grab?.cluster === cluster
+                ? grab.entries.map((e) => pixelCenter(e.px))
+                : [];
+
+            for (const px of cluster.pixels) {
+                if (grabbed.has(px)) continue;
+
+                for (const gc of grabCenters) {
+                    const c = pixelCenter(px);
+                    const dx = gc.x - c.x;
+                    const dy = gc.y - c.y;
+                    const dist = Math.hypot(dx, dy);
+                    if (dist > 0.05 && dist < GRAB_RADIUS * 1.6) {
+                        const f = (1 - dist / (GRAB_RADIUS * 1.6)) * NEIGHBOR_PULL;
+                        px.vx += dx * f;
+                        px.vy += dy * f;
+                    }
+                }
+
+                px.vx += -px.ox * SPRING;
+                px.vy += -px.oy * SPRING;
+                px.vx *= DAMP;
+                px.vy *= DAMP;
+                px.ox += px.vx * dt * 60;
+                px.oy += px.vy * dt * 60;
+
+                if (Math.abs(px.ox) < 0.02 && Math.abs(px.vx) < 0.02) px.ox = 0;
+                if (Math.abs(px.oy) < 0.02 && Math.abs(px.vy) < 0.02) px.oy = 0;
+
+                applyTransform(px);
+            }
+        }
+    }
+
+    const shapeKeys = Object.keys(SHAPE_GRIDS) as ShapeKey[];
+
+    function spawnShapeHtml(color: string, shapeKey: ShapeKey) {
+        return buildGooSvg(SHAPE_GRIDS[shapeKey], color);
+    }
+
+    registerAll();
+
+    const observer = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+            m.addedNodes.forEach((node) => {
+                if (!(node instanceof HTMLElement)) return;
+                if (node.matches?.("[data-goo]")) register(node);
+                node.querySelectorAll?.<HTMLElement>("[data-goo]").forEach(register);
+            });
+            m.removedNodes.forEach((node) => {
+                if (!(node instanceof HTMLElement)) return;
+                if (node.matches?.("[data-goo]")) unregister(node);
+                node.querySelectorAll?.<HTMLElement>("[data-goo]").forEach(unregister);
+            });
+        }
+    });
+    const scene = document.getElementById("scene");
+    if (scene) observer.observe(scene, { childList: true, subtree: true });
+
+    window.addEventListener("pointerdown", onPointerDown);
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+
+    let last = performance.now();
+    function frame(now: number) {
+        const dt = Math.min((now - last) / 1000, 0.033);
+        last = now;
+        tickGoo(dt);
+        requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+
+    declare global {
+        interface Window {
+            __gooRegister?: (el: HTMLElement) => void;
+            __gooUnregister?: (el: HTMLElement) => void;
+            __gooSpawnHtml?: (color: string, shapeKey: ShapeKey) => string;
+            __gooShapeKeys?: ShapeKey[];
+            __gooDidDrag?: () => boolean;
+        }
+    }
+
+    window.__gooRegister = register;
+    window.__gooUnregister = unregister;
+    window.__gooSpawnHtml = spawnShapeHtml;
+    window.__gooShapeKeys = shapeKeys;
+    window.__gooDidDrag = () => didDrag;
+</script>

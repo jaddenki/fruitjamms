@@ -235,10 +235,13 @@
     const physicsMap = new Map();
     let physicsT = 0;
 
-    const DRAG = 0.972;
-    const ROT_DRAG = 0.88;
-    const WALL_REST = 0.55;
-    const COLL_REST = 0.72;
+    const DRAG = 0.975;
+    const ROT_DRAG = 0.9;
+    const WALL_REST = 0.2;
+    const COLL_REST = 0.06;
+    const COLL_SLOP = 0.35;
+    const COLL_SEP = 0.38;
+    const REST_VEL = 22;
     const DRIFT_AMP = 24;
     const FLUID_MULT = 260;
     const MAX_SPEED = 320;
@@ -248,8 +251,42 @@
         return { W: sr.width, H: sr.height, left: sr.left, top: sr.top };
     }
 
+    /** Match visual bounds — half the shorter side so shapes touch edge-to-edge */
+    function collisionRadius(w, h) {
+        return Math.min(w, h) * 0.5;
+    }
+
+    function readBodySize(el) {
+        const svg = el.querySelector("svg");
+        if (svg) {
+            const w = parseFloat(svg.getAttribute("width") ?? "0");
+            const h = parseFloat(svg.getAttribute("height") ?? "0");
+            if (w > 0 && h > 0) return { w, h };
+        }
+        const r = el.getBoundingClientRect();
+        return { w: r.width, h: r.height };
+    }
+
+    function refreshBodyMetrics(b, el) {
+        const { w, h } = readBodySize(el);
+        b.w = w;
+        b.h = h;
+        b.rad = collisionRadius(w, h);
+    }
+
+    function applyBodyToEl(el, b) {
+        el.style.bottom = "auto";
+        el.style.right = "auto";
+        el.style.left = b.x - b.w * 0.5 + "px";
+        el.style.top = b.y - b.h * 0.5 + "px";
+        el.style.rotate = b.rot + "deg";
+        el.style.scale = b.scale ?? "1";
+        el.style.translate = "";
+    }
+
     function ensureBody(el, scene) {
         if (physicsMap.has(el)) return physicsMap.get(el);
+        const { w, h } = readBodySize(el);
         const r = el.getBoundingClientRect();
         const cx = r.left - scene.left + r.width * 0.5;
         const cy = r.top - scene.top + r.height * 0.5;
@@ -261,14 +298,64 @@
             vy: (Math.random() - 0.5) * 60,
             rot: startRot,
             rotV: (Math.random() - 0.5) * 1.5,
-            w: r.width,
-            h: r.height,
-            rad: Math.max(r.width, r.height) * 0.48,
+            w,
+            h,
+            rad: collisionRadius(w, h),
             phase: Math.random() * Math.PI * 2,
+            scale: "1",
         };
         physicsMap.set(el, body);
         el.style.animation = "none";
+        el.style.bottom = "auto";
+        el.style.right = "auto";
+        el.style.left = cx - w * 0.5 + "px";
+        el.style.top = cy - h * 0.5 + "px";
         return body;
+    }
+
+    function resolveCollisions(bodies) {
+        for (let pass = 0; pass < 2; pass++) {
+            for (let i = 0; i < bodies.length; i++) {
+                for (let j = i + 1; j < bodies.length; j++) {
+                    const a = bodies[i].b;
+                    const b = bodies[j].b;
+                    const dx = a.x - b.x;
+                    const dy = a.y - b.y;
+                    const minDist = a.rad + b.rad;
+                    const dist2 = dx * dx + dy * dy;
+                    if (dist2 >= minDist * minDist || dist2 < 0.0001) continue;
+
+                    const dist = Math.sqrt(dist2);
+                    const nx = dx / dist;
+                    const ny = dy / dist;
+                    const overlap = minDist - dist;
+
+                    if (overlap > COLL_SLOP) {
+                        const corr = (overlap - COLL_SLOP) * COLL_SEP;
+                        a.x += nx * corr;
+                        a.y += ny * corr;
+                        b.x -= nx * corr;
+                        b.y -= ny * corr;
+                    }
+
+                    const relVn = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+                    if (relVn >= 0) continue;
+
+                    const impulse = -(1 + COLL_REST) * relVn * 0.5;
+                    a.vx += impulse * nx;
+                    a.vy += impulse * ny;
+                    b.vx -= impulse * nx;
+                    b.vy -= impulse * ny;
+
+                    if (Math.abs(relVn) < REST_VEL) {
+                        a.vx *= 0.8;
+                        a.vy *= 0.8;
+                        b.vx *= 0.8;
+                        b.vy *= 0.8;
+                    }
+                }
+            }
+        }
     }
 
     function tickPhysics(dt) {
@@ -285,10 +372,11 @@
 
         physicsT += dt;
         const scene = getSceneDims();
-        const mascotEl = document.getElementById("mascot");
+        // [data-no-float] elements (e.g. the floor-anchored bloom clusters)
+        // opt out of the drift/collision physics entirely and keep the
+        // fixed position/bottom they were authored with.
         const els = [
-            ...document.querySelectorAll("#scene .cross-wrap"),
-            ...(mascotEl ? [mascotEl] : []),
+            ...document.querySelectorAll("#scene [data-goo]:not([data-no-float])"),
         ];
 
         for (const k of physicsMap.keys()) {
@@ -296,6 +384,10 @@
         }
 
         const bodies = els.map((el) => ({ el, b: ensureBody(el, scene) }));
+
+        bodies.forEach(({ el, b }) => {
+            if (!el.classList.contains("is-pulling")) refreshBodyMetrics(b, el);
+        });
 
         bodies.forEach(({ b }) => {
             const u = Math.max(0, Math.min(1, b.x / scene.W));
@@ -315,38 +407,14 @@
             b.vy += Math.cos(physicsT * 0.48 + b.phase + 1.3) * DRIFT_AMP * dt;
         });
 
-        for (let i = 0; i < bodies.length; i++) {
-            for (let j = i + 1; j < bodies.length; j++) {
-                const a = bodies[i].b,
-                    b = bodies[j].b;
-                const dx = a.x - b.x,
-                    dy = a.y - b.y;
-                const minDist = a.rad + b.rad;
-                const dist2 = dx * dx + dy * dy;
-                if (dist2 < minDist * minDist && dist2 > 0.0001) {
-                    const dist = Math.sqrt(dist2);
-                    const nx = dx / dist,
-                        ny = dy / dist;
-                    const overlap = minDist - dist;
-                    a.x += nx * overlap * 0.5;
-                    a.y += ny * overlap * 0.5;
-                    b.x -= nx * overlap * 0.5;
-                    b.y -= ny * overlap * 0.5;
-                    const relVn = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
-                    if (relVn < 0) {
-                        const impulse = -(1 + COLL_REST) * relVn * 0.5;
-                        a.vx += impulse * nx;
-                        a.vy += impulse * ny;
-                        b.vx -= impulse * nx;
-                        b.vy -= impulse * ny;
-                        a.rotV += nx * 0.8 * (Math.random() - 0.5);
-                        b.rotV -= nx * 0.8 * (Math.random() - 0.5);
-                    }
-                }
-            }
-        }
-
         bodies.forEach(({ el, b }) => {
+            if (el.classList.contains("is-pulling")) {
+                b.vx = 0;
+                b.vy = 0;
+                b.rotV = 0;
+                return;
+            }
+
             b.vx *= DRAG;
             b.vy *= DRAG;
             b.rotV *= ROT_DRAG;
@@ -358,34 +426,38 @@
             b.x += b.vx * dt;
             b.y += b.vy * dt;
             b.rot += b.rotV * dt * 35;
-            const mx = b.w * 0.5 + 6,
-                my = b.h * 0.5 + 6;
+        });
+
+        resolveCollisions(bodies);
+
+        bodies.forEach(({ el, b }) => {
+            if (el.classList.contains("is-pulling")) return;
+
+            const mx = b.w * 0.5;
+            const my = b.h * 0.5;
             if (b.x < mx) {
                 b.x = mx;
                 b.vx = Math.abs(b.vx) * WALL_REST;
-                b.rotV += (Math.random() - 0.5) * 1.2;
             }
             if (b.x > scene.W - mx) {
                 b.x = scene.W - mx;
                 b.vx = -Math.abs(b.vx) * WALL_REST;
-                b.rotV += (Math.random() - 0.5) * 1.2;
             }
             if (b.y < my) {
                 b.y = my;
                 b.vy = Math.abs(b.vy) * WALL_REST;
-                b.rotV += (Math.random() - 0.5) * 1.2;
             }
             if (b.y > scene.H - my) {
                 b.y = scene.H - my;
                 b.vy = -Math.abs(b.vy) * WALL_REST;
-                b.rotV += (Math.random() - 0.5) * 1.2;
             }
-            const sqsh = 1 + spd * 0.0006;
-            el.style.left = b.x - b.w * 0.5 + "px";
-            el.style.top = b.y - b.h * 0.5 + "px";
-            el.style.rotate = b.rot + "deg";
-            el.style.scale = sqsh.toString();
-            el.style.translate = "";
+
+            if (Math.abs(b.vx) < 3) b.vx = 0;
+            if (Math.abs(b.vy) < 3) b.vy = 0;
+
+            const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+            b.scale = (1 + spd * 0.0004).toString();
+            applyBodyToEl(el, b);
         });
     }
 

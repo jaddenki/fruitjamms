@@ -1,9 +1,10 @@
 ---
+import AboutBlurb from "../components/AboutBlurb.astro";
 import CrossScene from "../components/CrossScene.astro";
+import GooPixels from "../components/GooPixels.astro";
+import IntroCorner from "../components/IntroCorner.astro";
 import NavPill from "../components/NavPill.astro";
 import FluidSim from "../components/FluidSim.astro";
-
-const P = 13;
 
 // Edit this grid to reshape the mascot.
 // Each row is a string of 10 chars: 'X' = filled, '.' = empty.
@@ -19,21 +20,6 @@ const mascotGrid = [
     "..........", // row 8  feet
 ];
 
-function gridToRects(grid: string[], p: number): string {
-    return grid
-        .flatMap((row, r) =>
-            [...row].flatMap((cell, c) =>
-                cell === "X"
-                    ? [`<rect x="${c * p}" y="${r * p}" width="${p}" height="${p}"/>`]
-                    : [],
-            ),
-        )
-        .join("\n        ");
-}
-
-const mascotRects = gridToRects(mascotGrid, P);
-const mascotW = mascotGrid[0].length * P;
-const mascotH = mascotGrid.length * P;
 ---
 
 <!doctype html>
@@ -115,16 +101,23 @@ const mascotH = mascotGrid.length * P;
                 pointer-events: none;
                 z-index: 1;
             }
-            .cross-wrap {
-                position: absolute;
-                will-change: transform;
-            }
+            .cross-wrap,
             #mascot {
                 position: absolute;
-                bottom: 28px;
-                left: 28px;
+                will-change: transform;
+                pointer-events: auto;
+                cursor: grab;
+                touch-action: none;
             }
-            /* Mascot: gentle bob + squish */
+            .cross-wrap.is-pulling,
+            #mascot.is-pulling {
+                cursor: grabbing;
+            }
+            .cross-wrap svg,
+            #mascot svg {
+                overflow: visible;
+            }
+            /* Mascot: gentle bob + squish (inner svg only) */
             @keyframes mascot-bob {
                 0%, 100% { transform: translateY(0) scaleY(1) scaleX(1); }
                 35%       { transform: translateY(-9px) scaleY(1.05) scaleX(0.97); }
@@ -186,14 +179,6 @@ const mascotH = mascotGrid.length * P;
                 border-radius: inherit;
                 overflow: hidden;
             }
-            #panel-tagline {
-                font-size: 14px;
-                line-height: 1.5;
-                letter-spacing: -0.05em;
-                color: #000000;
-                flex-shrink: 0;
-                padding: 16px 0 8px;
-            }
             #work-grid {
                 position: absolute;
                 top: 44px;
@@ -201,53 +186,120 @@ const mascotH = mascotGrid.length * P;
                 right: 0;
                 bottom: 0;
                 overflow-y: auto;
-                padding: 12px 20px 40px 20px;
+                padding: 20px 20px 40px 20px;
                 display: flex;
                 flex-direction: column;
-                gap: 24px;
+                gap: 0;
                 scrollbar-width: none;
             }
             #work-grid::-webkit-scrollbar { display: none; }
 
+            #tag-filter-row {
+                display: flex;
+                flex-wrap: nowrap;
+                align-items: stretch;
+                gap: 6px;
+                margin: 0 0 4px;
+            }
+            .tag-filter-btn {
+                flex: 1 1 0;
+                font-family: "Authentic Sans", sans-serif;
+                font-size: 11px;
+                font-weight: bold;
+                letter-spacing: -0.03em;
+                padding: 6px 4px;
+                border-radius: 999px;
+                border: 1px solid rgba(0, 0, 0, 0.15);
+                background: none;
+                color: #000000;
+                cursor: pointer;
+                text-align: center;
+                white-space: nowrap;
+                text-transform: lowercase;
+                transition: transform 0.15s ease-out, border-color 0.15s, color 0.15s, background 0.15s;
+            }
+            .tag-filter-btn:hover:not(.active) {
+                border-color: #ff28a8;
+                color: #ff28a8;
+            }
+            .tag-filter-btn.active {
+                background: #000000;
+                border-color: #000000;
+                color: #ffffff;
+            }
+            .tag-filter-btn:active {
+                transform: scale(0.94);
+            }
+
             .work-item {
-                display: block;
+                display: flex;
+                align-items: baseline;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 14px 0;
+                border-bottom: 1px solid rgba(0, 0, 0, 0.08);
                 text-decoration: none;
                 color: inherit;
                 cursor: default;
                 flex-shrink: 0;
+                transition: transform 0.35s cubic-bezier(0.23, 1, 0.32, 1);
             }
+            .work-item:first-child { border-top: 1px solid rgba(0, 0, 0, 0.08); }
             a.work-item { cursor: pointer; }
-            a.work-item .work-card {
-                transition: transform 0.35s cubic-bezier(0.23, 1, 0.32, 1), filter 0.15s;
-            }
-            a.work-item:hover .work-card { transform: scale(0.97) translateY(-3px); filter: brightness(0.92); }
-            a.work-item:active .work-card {
-                transform: scale(0.95);
-                transition: transform 0.1s ease-out, filter 0.1s;
+            a.work-item:hover { transform: translateX(6px); }
+            a.work-item:active {
+                transform: translateX(3px) scale(0.98);
+                transition: transform 0.1s ease-out;
             }
             a.work-item:hover .work-label { color: #ff28a8; }
             .work-label {
                 font-size: 14px;
+                font-weight: bold;
                 letter-spacing: -0.05em;
                 color: #000000;
-                margin-bottom: 10px;
+                transition: color 0.12s ease-out;
             }
-            .work-card {
-                width: 100%;
+            .work-tags {
+                display: flex;
+                gap: 6px;
+                flex-shrink: 0;
+            }
+            .tag-chip {
+                font-size: 11px;
+                font-weight: bold;
+                letter-spacing: -0.03em;
+                color: #ffffff;
+                padding: 4px 10px;
+                border-radius: 999px;
+                text-transform: lowercase;
+            }
+
+            /* ── Floating work preview ── */
+            #work-preview {
+                position: fixed;
+                pointer-events: none;
+                z-index: 300;
+                opacity: 0;
+                width: 280px;
                 aspect-ratio: 16 / 9;
-                background: #000000;
-                border-radius: 0;
+                border-radius: 14px;
                 overflow: hidden;
+                background: #000000;
+                transform-origin: bottom left;
             }
-            .work-card img {
+            #work-preview img,
+            #work-preview video {
                 width: 100%;
                 height: 100%;
                 object-fit: cover;
                 display: block;
             }
-            .work-item:nth-child(4) .work-card {
-                background: linear-gradient(180deg, #000000 35%, #ff28a8 100%);
+            #work-preview img,
+            #work-preview video {
+                display: none;
             }
+            #work-preview.showing-img img { display: block; }
+            #work-preview.showing-video video { display: block; }
 
             /* ── Tabs ── */
             #side-tabs {
@@ -354,7 +406,7 @@ const mascotH = mascotGrid.length * P;
                 opacity: 0;
                 width: 120px;
                 height: 120px;
-                transform-origin: right center;
+                transform-origin: bottom left;
             }
             #member-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
@@ -365,7 +417,7 @@ const mascotH = mascotGrid.length * P;
                 bottom: 10vh;
                 height: 62vh;
                 width: 8px;
-                border-radius: 0;
+                border-radius: 999px;
                 background: rgba(255, 255, 255, 0.1);
                 z-index: 49;
                 opacity: 0;
@@ -378,7 +430,7 @@ const mascotH = mascotGrid.length * P;
                 top: 0;
                 width: 100%;
                 height: 30%;
-                border-radius: 0;
+                border-radius: 999px;
                 background: #ffffff;
             }
 
@@ -399,7 +451,10 @@ const mascotH = mascotGrid.length * P;
     </head>
     <body>
         <div id="stage" aria-hidden="true"></div>
-        <CrossScene {mascotRects} {mascotW} {mascotH} />
+        <GooPixels />
+        <CrossScene mascotGrid={mascotGrid} />
+        <IntroCorner />
+        <AboutBlurb />
         <NavPill />
         <FluidSim />
     </body>

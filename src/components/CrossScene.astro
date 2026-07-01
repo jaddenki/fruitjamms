@@ -1,75 +1,72 @@
 ---
+import {
+    PIXEL_CELL,
+    SHAPE_GRIDS,
+    gridDimensions,
+    gridToGooRects,
+} from "../lib/gooGrids";
+import BottomBloom from "./BottomBloom.astro";
+
 interface Props {
-    mascotRects: string;
-    mascotW: number;
-    mascotH: number;
+    mascotGrid: string[];
 }
-const { mascotRects, mascotW, mascotH } = Astro.props;
+const { mascotGrid } = Astro.props;
+
+const mascotDims = gridDimensions(mascotGrid);
+const mascotRects = gridToGooRects(mascotGrid, "#F020A0");
+
+const crosses = [
+    { id: "orange", color: "#E8850A", left: "7%", top: "38%", shape: "cross" as const },
+    { id: "lime", color: "#BDED00", left: "46%", top: "15%", shape: "plus" as const },
+    { id: "blue", color: "#2535E8", left: "63%", top: "8%", shape: "cross" as const },
+    { id: "green", color: "#00C44E", left: "79%", top: "58%", shape: "diamond" as const },
+];
 ---
 
 <div id="scene">
     <canvas id="fluid-bg" aria-hidden="true"></canvas>
 
-    <!-- Shared filter: blur+choke for soft pixel-art matte -->
-    <svg width="0" height="0" style="position:absolute;pointer-events:none;" aria-hidden="true">
-        <defs>
-            <filter id="cross-3d" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="2.2" result="b"/>
-                <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -8"/>
-            </filter>
-            <filter id="mascot-3d" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="1.8" result="b"/>
-                <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -7"/>
-            </filter>
-        </defs>
-    </svg>
+    {
+        crosses.map(({ id, color, left, top, shape }) => {
+            const vb = gridDimensions(SHAPE_GRIDS[shape]);
+            return (
+                <div class={`cross-wrap ${id}`} data-goo style={`left:${left};top:${top};`}>
+                    <svg
+                        width={vb.w}
+                        height={vb.h}
+                        viewBox={`0 0 ${vb.w} ${vb.h}`}
+                        xmlns="http://www.w3.org/2000/svg"
+                        shape-rendering="crispEdges"
+                        overflow="visible"
+                    >
+                        <g
+                            class="goo-layer"
+                            filter="url(#gooey)"
+                            set:html={gridToGooRects(SHAPE_GRIDS[shape], color)}
+                        />
+                    </svg>
+                </div>
+            );
+        })
+    }
 
-    <!-- Orange cross: left-center -->
-    <div class="cross-wrap orange" style="left:7%;top:38%;">
-        <svg width="72" height="72" viewBox="0 0 78 78"
-            xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" overflow="visible">
-            <path fill="#E8850A" fill-rule="evenodd" filter="url(#cross-3d)"
-                d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z M32 32h14v14H32Z"/>
-        </svg>
-    </div>
-
-    <!-- Lime cross: upper-center -->
-    <div class="cross-wrap lime" style="left:46%;top:15%;">
-        <svg width="58" height="58" viewBox="0 0 78 78"
-            xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" overflow="visible">
-            <path fill="#BDED00" fill-rule="evenodd" filter="url(#cross-3d)"
-                d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z M32 32h14v14H32Z"/>
-        </svg>
-    </div>
-
-    <!-- Blue cross: upper-right -->
-    <div class="cross-wrap blue" style="left:63%;top:8%;">
-        <svg width="76" height="76" viewBox="0 0 78 78"
-            xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" overflow="visible">
-            <path fill="#2535E8" fill-rule="evenodd" filter="url(#cross-3d)"
-                d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z M32 32h14v14H32Z"/>
-        </svg>
-    </div>
-
-    <!-- Green cross: lower-right -->
-    <div class="cross-wrap green" style="right:7%;top:58%;">
-        <svg width="66" height="66" viewBox="0 0 78 78"
-            xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" overflow="visible">
-            <path fill="#00C44E" fill-rule="evenodd" filter="url(#cross-3d)"
-                d="M26 0h26v26h26v26H52v26H26V52H0V26h26Z M32 32h14v14H32Z"/>
-        </svg>
-    </div>
-
-    <div id="mascot">
+    <div
+        id="mascot"
+        class="cross-wrap"
+        data-goo
+        style={`left:40px;bottom:40px;`}
+    >
         <svg
-            width={mascotW}
-            height={mascotH}
-            viewBox={`0 0 ${mascotW} ${mascotH}`}
+            width={mascotDims.w}
+            height={mascotDims.h}
+            viewBox={`0 0 ${mascotDims.w} ${mascotDims.h}`}
             xmlns="http://www.w3.org/2000/svg"
             shape-rendering="crispEdges"
             overflow="visible"
         >
-            <g fill="#F020A0" filter="url(#mascot-3d)" set:html={mascotRects} />
+            <g class="goo-layer" filter="url(#gooey)" set:html={mascotRects} />
         </svg>
     </div>
+
+    <BottomBloom />
 </div>
