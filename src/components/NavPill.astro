@@ -186,6 +186,7 @@ const allTags = Array.from(
 
     <!-- Section tabs: horizontal bar at top of panel -->
     <nav id="side-tabs" aria-label="Sections" aria-hidden="true">
+        <span class="tab-indicator" aria-hidden="true"></span>
         <button class="tab-btn active" data-tab="work" aria-pressed="true"
             >work</button
         >
@@ -325,6 +326,21 @@ const allTags = Array.from(
         }
     }
 
+    /* Slight cursor-driven tilt for a floating preview: it leans in the
+       direction of horizontal travel and relaxes back to level when idle. */
+    function makeTilt(el: HTMLElement, max = 7, factor = 0.5) {
+        const rot = gsap.quickTo(el, "rotation", {
+            duration: 0.6,
+            ease: "power3.out",
+        });
+        let idle: ReturnType<typeof setTimeout>;
+        return (vx: number) => {
+            rot(gsap.utils.clamp(-max, max, vx * factor));
+            clearTimeout(idle);
+            idle = setTimeout(() => rot(0), 140);
+        };
+    }
+
     const pill = document.getElementById("nav-pill")!;
     const panel = document.getElementById("menu-panel")!;
     const pillIcon = document.getElementById("pill-icon")!;
@@ -413,6 +429,24 @@ const allTags = Array.from(
     }
     workGrid.addEventListener("scroll", syncThumb);
 
+    /* The menu rows currently on screen, top-to-bottom, so they can be
+       staggered in/out. Uses whichever tab is showing. */
+    function menuRevealTargets(): HTMLElement[] {
+        const team = document.getElementById("team-panel");
+        if (team && team.classList.contains("visible")) {
+            return Array.from(team.children) as HTMLElement[];
+        }
+        const targets: HTMLElement[] = [];
+        const filterRow = document.getElementById("tag-filter-row");
+        if (filterRow) targets.push(filterRow);
+        document
+            .querySelectorAll<HTMLElement>("#work-grid .work-item")
+            .forEach((i) => {
+                if (i.style.display !== "none") targets.push(i);
+            });
+        return targets;
+    }
+
     function openMenu() {
         if (isOpen || animating) return;
         animating = true;
@@ -430,18 +464,23 @@ const allTags = Array.from(
             },
         });
         morphArrow(true);
-        tl.to(
+        // Pink header swipes up into place a beat after the panel has risen,
+        // so the reveal reads as deliberate rather than everything at once.
+        tl.fromTo(
             sideTabs,
+            { autoAlpha: 0, yPercent: 100 },
             {
                 autoAlpha: 1,
-                duration: 0.16 * dur || 0.001,
-                ease: "power2.inOut",
+                yPercent: 0,
+                duration: 0.55 * dur || 0.001,
+                ease: "back.out(1.6)",
                 onStart: () => {
                     sideTabs.style.pointerEvents = "auto";
                     sideTabs.removeAttribute("aria-hidden");
+                    moveTabIndicator(false);
                 },
             },
-            0,
+            0.34 * dur || 0.001,
         );
         tl.to(
             pill,
@@ -468,6 +507,24 @@ const allTags = Array.from(
             },
             0.08 * dur || 0.001,
         );
+        // Menu rows swipe up and settle with a slight bounce, staggered by
+        // their position so the list reveals from top to bottom.
+        const revealTargets = menuRevealTargets();
+        tl.fromTo(
+            revealTargets,
+            { autoAlpha: 0, y: 26 },
+            {
+                autoAlpha: 1,
+                y: 0,
+                duration: 0.55 * dur || 0.001,
+                ease: "back.out(1.6)",
+                stagger: 0.045 * dur,
+                // Drop the inline transform once settled so the CSS :hover
+                // translateX shift on rows keeps working.
+                clearProps: "transform",
+            },
+            0.22 * dur || 0.001,
+        );
         // Size the thumb once the panel is near full height, then fade the rail
         // in — avoids the first-open scrollbar flash.
         tl.call(syncThumb, [], 0.3 * dur || 0.001);
@@ -484,21 +541,36 @@ const allTags = Array.from(
                 pill.classList.remove("is-open");
             },
         });
+        // Menu rows swipe down + fade first, staggered from the bottom up so
+        // the collapse feels like the reverse of the reveal. The panel surface
+        // stays opaque underneath them until the pill has collapsed.
+        panel.style.pointerEvents = "none";
+        panel.setAttribute("aria-hidden", "true");
+        sideTabs.style.pointerEvents = "none";
+        sideTabs.setAttribute("aria-hidden", "true");
+        const closeTargets = menuRevealTargets();
         tl.to(
-            [panel, sideTabs, scrollRail],
+            closeTargets,
             {
                 autoAlpha: 0,
-                duration: 0.12 * dur || 0.001,
-                ease: "power2.inOut",
-                onComplete: () => {
-                    panel.style.pointerEvents = "none";
-                    panel.setAttribute("aria-hidden", "true");
-                    sideTabs.style.pointerEvents = "none";
-                    sideTabs.setAttribute("aria-hidden", "true");
-                },
+                y: 26,
+                duration: 0.3 * dur || 0.001,
+                ease: "power2.in",
+                stagger: { each: 0.03 * dur, from: "end" },
             },
             0,
         );
+        tl.to(
+            sideTabs,
+            {
+                autoAlpha: 0,
+                yPercent: 100,
+                duration: 0.3 * dur || 0.001,
+                ease: "power2.in",
+            },
+            0.05 * dur || 0.001,
+        );
+        tl.to(scrollRail, { autoAlpha: 0, duration: 0.14 * dur || 0.001 }, 0);
         tl.to(
             pill,
             {
@@ -509,7 +581,7 @@ const allTags = Array.from(
                 duration: 0.34 * dur || 0.001,
                 ease: "power2.inOut",
             },
-            0.08 * dur || 0.001,
+            0.26 * dur || 0.001,
         );
         morphArrow(false);
         tl.set(panel, { opacity: 0, visibility: "" });
@@ -546,6 +618,7 @@ const allTags = Array.from(
         setPanelWidthVar(w);
         gsap.set(pill, { width: w });
         syncThumb();
+        moveTabIndicator(false);
     });
 
     /* ── Copy email to clipboard ── */
@@ -657,8 +730,35 @@ const allTags = Array.from(
 
     /* ── Tab navigation ── */
     const teamPanel = document.getElementById("team-panel")!;
+    const tabIndicator =
+        sideTabs.querySelector<HTMLElement>(".tab-indicator");
 
-    function showTab(tab: string) {
+    /* Slide the pink pill to the active tab. It eases with a slight bounce on
+       a switch, and snaps into place (no motion) when the menu first opens. */
+    function moveTabIndicator(animate: boolean) {
+        if (!tabIndicator) return;
+        const active = sideTabs.querySelector<HTMLElement>(".tab-btn.active");
+        if (!active) return;
+        const left = active.offsetLeft;
+        const width = active.offsetWidth;
+        if (animate && !reducedMotion) {
+            gsap.to(tabIndicator, {
+                left,
+                width,
+                duration: 0.6,
+                ease: "back.inOut(1.5)",
+            });
+        } else {
+            gsap.set(tabIndicator, { left, width });
+        }
+    }
+    // Position it once fonts are ready so the pill matches the final text width.
+    if (document.fonts?.ready) {
+        document.fonts.ready.then(() => moveTabIndicator(false));
+    }
+    moveTabIndicator(false);
+
+    function swapTabDisplay(tab: string) {
         if (tab === "work") {
             workGrid.style.display = "flex";
             teamPanel.classList.remove("visible");
@@ -671,6 +771,50 @@ const allTags = Array.from(
         }
     }
 
+    let currentTab = "work";
+    function showTab(tab: string) {
+        if (tab === currentTab) return;
+
+        if (reducedMotion) {
+            swapTabDisplay(tab);
+            currentTab = tab;
+            syncThumb();
+            return;
+        }
+
+        // Current rows swipe down + fade, then the incoming tab's rows swipe
+        // up with a slight bounce, staggered by position — same feel as open.
+        const outgoing = menuRevealTargets();
+        gsap.killTweensOf(outgoing);
+        currentTab = tab;
+        gsap.to(outgoing, {
+            autoAlpha: 0,
+            y: 18,
+            duration: 0.2 * dur || 0.001,
+            ease: "power2.in",
+            stagger: { each: 0.02 * dur, from: "end" },
+            onComplete: () => {
+                swapTabDisplay(tab);
+                const incoming = menuRevealTargets();
+                gsap.killTweensOf(incoming);
+                gsap.fromTo(
+                    incoming,
+                    { autoAlpha: 0, y: 24 },
+                    {
+                        autoAlpha: 1,
+                        y: 0,
+                        duration: 0.5 * dur || 0.001,
+                        ease: "back.out(1.6)",
+                        stagger: 0.04 * dur,
+                        clearProps: "transform",
+                        onComplete: syncThumb,
+                    },
+                );
+                syncThumb();
+            },
+        });
+    }
+
     document.querySelectorAll(".tab-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
             document.querySelectorAll(".tab-btn").forEach((b) => {
@@ -679,6 +823,7 @@ const allTags = Array.from(
             });
             btn.classList.add("active");
             btn.setAttribute("aria-pressed", "true");
+            moveTabIndicator(true);
             showTab((btn as HTMLElement).dataset.tab!);
         });
     });
@@ -712,6 +857,7 @@ const allTags = Array.from(
         duration: 0.35,
         ease: "power3.out",
     });
+    const memberTilt = makeTilt(memberPreview);
 
     document.querySelectorAll(".team-row").forEach((row) => {
         row.addEventListener("mouseenter", (e) => {
@@ -761,6 +907,7 @@ const allTags = Array.from(
         row.addEventListener("mousemove", (e) => {
             followX((e as MouseEvent).clientX + PREVIEW_OFFSET_X);
             followY((e as MouseEvent).clientY + PREVIEW_OFFSET_Y);
+            memberTilt(mouseVX);
         });
 
         row.addEventListener("mouseleave", () => {
@@ -800,6 +947,7 @@ const allTags = Array.from(
         duration: 0.35,
         ease: "power3.out",
     });
+    const workTilt = makeTilt(workPreview);
     let workPreviewTween: gsap.core.Tween | gsap.core.Timeline | null = null;
     let workPreviewActive = false;
     let workLeaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -858,6 +1006,7 @@ const allTags = Array.from(
         item.addEventListener("mousemove", (e) => {
             workFollowX((e as MouseEvent).clientX + WORK_PREVIEW_OFFSET_X);
             workFollowY((e as MouseEvent).clientY + WORK_PREVIEW_OFFSET_Y);
+            workTilt(mouseVX);
         });
 
         item.addEventListener("mouseleave", () => {

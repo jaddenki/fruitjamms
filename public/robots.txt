@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://jam.ms/sitemap-index.xml

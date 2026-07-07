@@ -29,7 +29,10 @@ const team = [
 ];
 ---
 
-<BaseLayout title=" team">
+<BaseLayout
+  title=" team"
+  description="a crew of designers, developers, and artists."
+>
   <div class="team-grid">
     {team.map((member) => (
       <a href={member.link} target="_blank" class="team-member">
