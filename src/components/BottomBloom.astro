@@ -1,0 +1,194 @@
+---
+import {
+    PIXEL_CELL,
+    PIXEL_STRIDE,
+    SHAPE_GRIDS,
+    gridDimensions,
+    gridToGooRects,
+} from "../lib/gooGrids";
+
+// ── Bottom bloom ──────────────────────────────────────────────────────────
+// Flower/blob clusters that sit along the floor of the stage, built from the
+// same goo-pixel system as the corner crosses and mascot. Every pixel here
+// uses the same PIXEL_CELL size so the whole scene reads as one consistent
+// grid. Everything below is data — edit freely to reshape it.
+
+// Wave clusters: pixel grids fused flush to the floor. Their bottom row sits
+// below the stage edge (see SINK_ROWS) so it gets clipped off — the goo
+// blur then reads as the blob melting straight into the floor instead of
+// floating just above it. They're still draggable like the other goo
+// clusters (pull and let go — the spring physics snaps them back to the
+// floor), they just never drift away on their own.
+// SINK_ROWS must stay smaller than the number of fully-solid base rows in
+// each grid below — that leaves at least one solid row beneath the crop
+// line so the goo blur's corner-rounding never reaches it, keeping the cut
+// perfectly flat against the floor instead of leaving a rounded gap.
+const SINK_ROWS = 2;
+const waveClusters: { left: string; color: string; grid: string[] }[] = [
+    {
+        left: "53%",
+        color: "#ffffff",
+        grid: ["..X...", "...X.X", "X...X.", "XX..X.", "XXXXXX"],
+    },
+    {
+        left: "82%",
+        color: "#ffffff",
+        grid: ["......", "X.....", ".X.X.X", ".X..X.", "XXXXXX"],
+    },
+];
+
+// Small blobs that float just above the floor without touching it.
+const floatBlobs: {
+    left: string;
+    bottom: string;
+    shape: keyof typeof SHAPE_GRIDS;
+    color: string;
+}[] = [{ left: "38%", bottom: "40px", shape: "plus", color: "#ffffff" }];
+
+// Loose dots drifting above the wave.
+const dots: { left: string; bottom: string }[] = [
+    { left: "58%", bottom: "128px" },
+    { left: "61.5%", bottom: "104px" },
+];
+
+// Colored flower accents — reuse the same "cross" ring shape as the corner
+// crosses, which reads as a 4-petal flower with a hollow center.
+const flowers: { left: string; bottom: string; color: string }[] = [
+    { left: "15%", bottom: "88px", color: "#00C44E" },
+    { left: "88%", bottom: "88px", color: "#ff940f" },
+];
+---
+
+<div id="bottom-bloom" aria-hidden="true">
+    {
+        waveClusters.map(({ left, color, grid }) => {
+            const dims = gridDimensions(grid);
+            return (
+                <div
+                    class="bloom-wrap"
+                    data-goo
+                    data-no-float
+                    style={`left:${left};bottom:${-(SINK_ROWS * PIXEL_STRIDE)}px;`}
+                >
+                    <svg
+                        width={dims.w}
+                        height={dims.h}
+                        viewBox={`0 0 ${dims.w} ${dims.h}`}
+                        xmlns="http://www.w3.org/2000/svg"
+                        shape-rendering="crispEdges"
+                        overflow="visible"
+                    >
+                        <g
+                            class="goo-layer"
+                            filter="url(#gooey)"
+                            set:html={gridToGooRects(grid, color)}
+                        />
+                    </svg>
+                </div>
+            );
+        })
+    }
+
+    {
+        floatBlobs.map(({ left, bottom, shape, color }) => {
+            const dims = gridDimensions(SHAPE_GRIDS[shape]);
+            return (
+                <div
+                    class="bloom-wrap"
+                    data-goo
+                    style={`left:${left};bottom:${bottom};`}
+                >
+                    <svg
+                        width={dims.w}
+                        height={dims.h}
+                        viewBox={`0 0 ${dims.w} ${dims.h}`}
+                        xmlns="http://www.w3.org/2000/svg"
+                        shape-rendering="crispEdges"
+                        overflow="visible"
+                    >
+                        <g
+                            class="goo-layer"
+                            filter="url(#gooey)"
+                            set:html={gridToGooRects(SHAPE_GRIDS[shape], color)}
+                        />
+                    </svg>
+                </div>
+            );
+        })
+    }
+
+    {
+        dots.map(({ left, bottom }) => (
+            <div
+                class="bloom-wrap"
+                data-goo
+                style={`left:${left};bottom:${bottom};`}
+            >
+                <svg
+                    width={PIXEL_CELL}
+                    height={PIXEL_CELL}
+                    viewBox={`0 0 ${PIXEL_CELL} ${PIXEL_CELL}`}
+                    xmlns="http://www.w3.org/2000/svg"
+                    shape-rendering="crispEdges"
+                    overflow="visible"
+                >
+                    <g
+                        class="goo-layer"
+                        filter="url(#gooey)"
+                        set:html={gridToGooRects(SHAPE_GRIDS.dot, "#ffffff")}
+                    />
+                </svg>
+            </div>
+        ))
+    }
+
+    {
+        flowers.map(({ left, bottom, color }) => {
+            const dims = gridDimensions(SHAPE_GRIDS.cross);
+            return (
+                <div
+                    class="bloom-wrap"
+                    data-goo
+                    style={`left:${left};bottom:${bottom};`}
+                >
+                    <svg
+                        width={dims.w}
+                        height={dims.h}
+                        viewBox={`0 0 ${dims.w} ${dims.h}`}
+                        xmlns="http://www.w3.org/2000/svg"
+                        shape-rendering="crispEdges"
+                        overflow="visible"
+                    >
+                        <g
+                            class="goo-layer"
+                            filter="url(#gooey)"
+                            set:html={gridToGooRects(SHAPE_GRIDS.cross, color)}
+                        />
+                    </svg>
+                </div>
+            );
+        })
+    }
+</div>
+
+<style>
+    #bottom-bloom {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 2;
+    }
+    .bloom-wrap {
+        position: absolute;
+        will-change: transform;
+        pointer-events: auto;
+        cursor: grab;
+        touch-action: none;
+    }
+    .bloom-wrap.is-pulling {
+        cursor: grabbing;
+    }
+    .bloom-wrap svg {
+        overflow: visible;
+    }
+</style>

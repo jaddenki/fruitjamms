@@ -1,0 +1,33 @@
+---
+---
+
+<p id="about-blurb" aria-hidden="false">
+    a product studio designing & shipping games, brand, and web work for
+    those who want it to stick.
+</p>
+
+<style>
+    #about-blurb {
+        position: fixed;
+        top: calc(var(--frame) + 26px);
+        right: calc(var(--frame) + 28px);
+        z-index: 10;
+        max-width: 260px;
+        text-align: right;
+        text-wrap: balance;
+        font-family: "Authentic Sans", sans-serif;
+        font-size: 14px;
+        line-height: 1.4;
+        letter-spacing: -0.05em;
+        color: #ffffff;
+        mix-blend-mode: difference;
+        pointer-events: none;
+    }
+
+    @media (max-width: 480px) {
+        #about-blurb {
+            max-width: 180px;
+            font-size: 12px;
+        }
+    }
+</style>

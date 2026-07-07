@@ -1,0 +1,72 @@
+---
+import {
+    PIXEL_CELL,
+    SHAPE_GRIDS,
+    gridDimensions,
+    gridToGooRects,
+} from "../lib/gooGrids";
+import BottomBloom from "./BottomBloom.astro";
+
+interface Props {
+    mascotGrid: string[];
+}
+const { mascotGrid } = Astro.props;
+
+const mascotDims = gridDimensions(mascotGrid);
+const mascotRects = gridToGooRects(mascotGrid, "#F020A0");
+
+const crosses = [
+    { id: "orange", color: "#ff940f", left: "7%", top: "38%", shape: "cross" as const },
+    { id: "lime", color: "#BDED00", left: "46%", top: "15%", shape: "plus" as const },
+    { id: "blue", color: "#2535E8", left: "63%", top: "8%", shape: "cross" as const },
+    { id: "green", color: "#00C44E", left: "79%", top: "58%", shape: "diamond" as const },
+];
+---
+
+<div id="scene">
+    <canvas id="fluid-bg" aria-hidden="true"></canvas>
+
+    {
+        crosses.map(({ id, color, left, top, shape }) => {
+            const vb = gridDimensions(SHAPE_GRIDS[shape]);
+            return (
+                <div class={`cross-wrap ${id}`} data-goo style={`left:${left};top:${top};`}>
+                    <svg
+                        width={vb.w}
+                        height={vb.h}
+                        viewBox={`0 0 ${vb.w} ${vb.h}`}
+                        xmlns="http://www.w3.org/2000/svg"
+                        shape-rendering="crispEdges"
+                        overflow="visible"
+                    >
+                        <g
+                            class="goo-layer"
+                            filter="url(#gooey)"
+                            set:html={gridToGooRects(SHAPE_GRIDS[shape], color)}
+                        />
+                    </svg>
+                </div>
+            );
+        })
+    }
+
+    <div
+        id="mascot"
+        class="cross-wrap"
+        data-goo
+        style={`left:40px;bottom:40px;`}
+    >
+        <svg
+            width={mascotDims.w}
+            height={mascotDims.h}
+            viewBox={`0 0 ${mascotDims.w} ${mascotDims.h}`}
+            xmlns="http://www.w3.org/2000/svg"
+            shape-rendering="crispEdges"
+            overflow="visible"
+        >
+            <g class="goo-layer" filter="url(#gooey)" set:html={mascotRects} />
+        </svg>
+    </div>
+
+    <BottomBloom />
+</div>
