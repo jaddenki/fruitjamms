@@ -230,6 +230,7 @@
     const velPixels = new Uint8Array(ENC_SIZE * ENC_SIZE * 4);
 
     const sceneEl = document.getElementById("scene");
+    let prevMenuTop = null;
 
     // ── 2D Physics ──────────────────────────────────────────────────────────
     const physicsMap = new Map();
@@ -237,7 +238,16 @@
 
     const DRAG = 0.975;
     const ROT_DRAG = 0.9;
-    const WALL_REST = 0.2;
+    const WALL_SOFT = 12;
+    const WALL_SPRING = 88;
+    const WALL_REST = 0.42;
+    const WALL_TANGENT = 0.94;
+    const WALL_VEL_MIN = 1.1;
+    const MENU_FIELD = 58;
+    const MENU_PUSH = 88;
+    const MENU_SEP_SPEED = 11;
+    const MENU_RISE_COUPLE = 0.68;
+    const MENU_RISE_SIDE = 0.32;
     const COLL_REST = 0.06;
     const COLL_SLOP = 0.35;
     const COLL_SEP = 0.38;
@@ -249,6 +259,159 @@
     function getSceneDims() {
         const sr = sceneEl.getBoundingClientRect();
         return { W: sr.width, H: sr.height, left: sr.left, top: sr.top };
+    }
+
+    function wallRestitution(impact) {
+        return Math.min(WALL_REST, 0.18 + impact * 0.0028);
+    }
+
+    /** Open nav panel in scene-local coords (null when collapsed). */
+    function getMenuObstacle(scene) {
+        const pill = document.getElementById("nav-pill");
+        if (!pill?.classList.contains("is-open")) return null;
+        const r = pill.getBoundingClientRect();
+        const left = r.left - scene.left;
+        const right = r.right - scene.left;
+        const top = r.top - scene.top;
+        const bottom = r.bottom - scene.top;
+        if (right <= 0 || left >= scene.W || bottom <= 0 || top >= scene.H) {
+            return null;
+        }
+        return {
+            left: Math.max(0, left),
+            right: Math.min(scene.W, right),
+            top: Math.max(0, top),
+            bottom: Math.min(scene.H, bottom),
+        };
+    }
+
+    function overlapsObstacleX(mx, x, obs) {
+        return x + mx > obs.left && x - mx < obs.right;
+    }
+
+    function menuEscapeNormal(bx, by, obs) {
+        const cpx = Math.max(obs.left, Math.min(bx, obs.right));
+        const cpy = Math.max(obs.top, Math.min(by, obs.bottom));
+        let dx = bx - cpx;
+        let dy = by - cpy;
+        let dist = Math.hypot(dx, dy);
+        if (dist < 0.001) {
+            const toLeft = bx - obs.left;
+            const toRight = obs.right - bx;
+            const toTop = by - obs.top;
+            const toBottom = obs.bottom - by;
+            const min = Math.min(toLeft, toRight, toTop, toBottom);
+            if (min === toTop) {
+                dx = 0;
+                dy = -1;
+            } else if (min === toBottom) {
+                dx = 0;
+                dy = 1;
+            } else if (min === toLeft) {
+                dx = -1;
+                dy = 0;
+            } else {
+                dx = 1;
+                dy = 0;
+            }
+            dist = 1;
+        }
+        return { nx: dx / dist, ny: dy / dist, dist };
+    }
+
+    /** Soft, localized push from the open menu — no hard snaps. */
+    function applyMenuForces(b, mx, my, obs, dt, menuRiseVy) {
+        const rad = Math.max(mx, my, b.rad);
+        const reach = MENU_FIELD + rad;
+        const { nx, ny, dist } = menuEscapeNormal(b.x, b.y, obs);
+        const gap = dist - rad;
+        const contactX = Math.max(obs.left, Math.min(b.x, obs.right));
+
+        if (gap < reach) {
+            const t = 1 - Math.max(0, gap) / reach;
+            const ease = t * t * (3 - 2 * t);
+            const force = ease * MENU_PUSH;
+            b.vx += nx * force * dt;
+            b.vy += ny * force * dt;
+        }
+
+        if (menuRiseVy < -0.5) {
+            const vertGap = obs.top - (b.y + my);
+            if (vertGap < reach && vertGap > -my) {
+                const horiz = Math.abs(b.x - contactX);
+                const hFall = Math.max(0, 1 - horiz / (mx + MENU_FIELD * 0.45));
+                const vFall = Math.max(0, 1 - Math.max(0, vertGap) / reach);
+                const local = hFall * vFall;
+                if (local > 0) {
+                    const side = (b.x - contactX) / Math.max(mx, 20);
+                    b.vy += menuRiseVy * local * MENU_RISE_COUPLE;
+                    b.vx += side * -menuRiseVy * local * MENU_RISE_SIDE;
+                }
+            }
+        }
+
+        if (overlapsObstacleX(mx, b.x, obs)) {
+            const edgeGap = obs.top - (b.y + my);
+            if (edgeGap > 0 && edgeGap < reach) {
+                const edgeT = 1 - edgeGap / reach;
+                const edgeEase = edgeT * edgeT;
+                b.vy -= edgeEase * MENU_PUSH * 0.55 * dt;
+                b.vx += ((b.x - contactX) / Math.max(mx, 20)) * edgeEase * MENU_PUSH * 0.22 * dt;
+            }
+        }
+    }
+
+    function softenMenuOverlap(b, mx, my, obs, dt) {
+        const rad = Math.max(mx, my, b.rad);
+        const { nx, ny, dist } = menuEscapeNormal(b.x, b.y, obs);
+        const gap = dist - rad;
+        if (gap >= 0) return;
+
+        const overlap = -gap;
+        const sep = overlap * Math.min(1, MENU_SEP_SPEED * dt);
+        b.x += nx * sep;
+        b.y += ny * sep;
+        const vn = b.vx * nx + b.vy * ny;
+        if (vn < 0) {
+            const rest = wallRestitution(-vn) * 0.7;
+            b.vx -= vn * nx * (1 + rest);
+            b.vy -= vn * ny * (1 + rest);
+        }
+    }
+
+    function resolveSceneWalls(b, mx, my, scene) {
+        if (b.x < mx) {
+            b.x = mx;
+            if (b.vx < 0) {
+                const impact = -b.vx;
+                b.vx = impact * wallRestitution(impact);
+                b.vy *= WALL_TANGENT;
+            }
+        }
+        if (b.x > scene.W - mx) {
+            b.x = scene.W - mx;
+            if (b.vx > 0) {
+                const impact = b.vx;
+                b.vx = -impact * wallRestitution(impact);
+                b.vy *= WALL_TANGENT;
+            }
+        }
+        if (b.y < my) {
+            b.y = my;
+            if (b.vy < 0) {
+                const impact = -b.vy;
+                b.vy = impact * wallRestitution(impact);
+                b.vx *= WALL_TANGENT;
+            }
+        }
+        if (b.y > scene.H - my) {
+            b.y = scene.H - my;
+            if (b.vy > 0) {
+                const impact = b.vy;
+                b.vy = -impact * wallRestitution(impact);
+                b.vx *= WALL_TANGENT;
+            }
+        }
     }
 
     /** Match visual bounds — half the shorter side so shapes touch edge-to-edge */
@@ -317,42 +480,98 @@
         for (let pass = 0; pass < 2; pass++) {
             for (let i = 0; i < bodies.length; i++) {
                 for (let j = i + 1; j < bodies.length; j++) {
-                    const a = bodies[i].b;
-                    const b = bodies[j].b;
-                    const dx = a.x - b.x;
-                    const dy = a.y - b.y;
-                    const minDist = a.rad + b.rad;
-                    const dist2 = dx * dx + dy * dy;
-                    if (dist2 >= minDist * minDist || dist2 < 0.0001) continue;
+                    resolveBodyPair(bodies[i], bodies[j]);
+                }
+            }
+        }
+    }
 
-                    const dist = Math.sqrt(dist2);
-                    const nx = dx / dist;
-                    const ny = dy / dist;
-                    const overlap = minDist - dist;
+    function resolveBodyPair(aEntry, bEntry, staticB = null) {
+        const a = aEntry.b;
+        const b = bEntry.b;
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const minDist = a.rad + b.rad;
+        const dist2 = dx * dx + dy * dy;
+        if (dist2 >= minDist * minDist || dist2 < 0.0001) return;
 
-                    if (overlap > COLL_SLOP) {
-                        const corr = (overlap - COLL_SLOP) * COLL_SEP;
-                        a.x += nx * corr;
-                        a.y += ny * corr;
-                        b.x -= nx * corr;
-                        b.y -= ny * corr;
-                    }
+        const dist = Math.sqrt(dist2);
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const overlap = minDist - dist;
 
-                    const relVn = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
-                    if (relVn >= 0) continue;
+        if (overlap > COLL_SLOP) {
+            const corr = (overlap - COLL_SLOP) * COLL_SEP;
+            if (staticB === bEntry) {
+                a.x += nx * corr * 2;
+                a.y += ny * corr * 2;
+            } else if (staticB === aEntry) {
+                b.x -= nx * corr * 2;
+                b.y -= ny * corr * 2;
+            } else {
+                a.x += nx * corr;
+                a.y += ny * corr;
+                b.x -= nx * corr;
+                b.y -= ny * corr;
+            }
+        }
 
-                    const impulse = -(1 + COLL_REST) * relVn * 0.5;
-                    a.vx += impulse * nx;
-                    a.vy += impulse * ny;
-                    b.vx -= impulse * nx;
-                    b.vy -= impulse * ny;
+        const bvx = staticB === bEntry ? 0 : b.vx;
+        const bvy = staticB === bEntry ? 0 : b.vy;
+        const avx = staticB === aEntry ? 0 : a.vx;
+        const avy = staticB === aEntry ? 0 : a.vy;
+        const relVn = (avx - bvx) * nx + (avy - bvy) * ny;
+        if (relVn >= 0) return;
 
-                    if (Math.abs(relVn) < REST_VEL) {
-                        a.vx *= 0.8;
-                        a.vy *= 0.8;
-                        b.vx *= 0.8;
-                        b.vy *= 0.8;
-                    }
+        const impulse = -(1 + COLL_REST) * relVn;
+        if (staticB === bEntry) {
+            a.vx += impulse * nx;
+            a.vy += impulse * ny;
+        } else if (staticB === aEntry) {
+            b.vx -= impulse * nx;
+            b.vy -= impulse * ny;
+        } else {
+            const half = impulse * 0.5;
+            a.vx += half * nx;
+            a.vy += half * ny;
+            b.vx -= half * nx;
+            b.vy -= half * ny;
+            if (Math.abs(relVn) < REST_VEL) {
+                a.vx *= 0.8;
+                a.vy *= 0.8;
+                b.vx *= 0.8;
+                b.vy *= 0.8;
+            }
+        }
+    }
+
+    function getAnchorBodies(scene) {
+        return [
+            ...document.querySelectorAll("#scene [data-goo][data-no-float]"),
+        ].map((el) => {
+            const { w, h } = readBodySize(el);
+            const r = el.getBoundingClientRect();
+            return {
+                el,
+                b: {
+                    x: r.left - scene.left + r.width * 0.5,
+                    y: r.top - scene.top + r.height * 0.5,
+                    vx: 0,
+                    vy: 0,
+                    w,
+                    h,
+                    rad: collisionRadius(w, h),
+                },
+            };
+        });
+    }
+
+    function resolveAnchorCollisions(floatBodies, anchorBodies) {
+        for (let pass = 0; pass < 2; pass++) {
+            for (const floatEntry of floatBodies) {
+                if (floatEntry.el.classList.contains("is-pulling")) continue;
+                for (const anchorEntry of anchorBodies) {
+                    resolveBodyPair(floatEntry, anchorEntry, anchorEntry);
                 }
             }
         }
@@ -372,6 +591,12 @@
 
         physicsT += dt;
         const scene = getSceneDims();
+        const menuObs = getMenuObstacle(scene);
+        let menuRiseVy = 0;
+        if (menuObs && prevMenuTop !== null) {
+            menuRiseVy = (menuObs.top - prevMenuTop) / Math.max(dt, 0.001);
+        }
+        prevMenuTop = menuObs?.top ?? null;
         // [data-no-float] elements (e.g. the floor-anchored bloom clusters)
         // opt out of the drift/collision physics entirely and keep the
         // fixed position/bottom they were authored with.
@@ -415,6 +640,18 @@
                 return;
             }
 
+            const mx = b.w * 0.5;
+            const my = b.h * 0.5;
+            const penL = mx + WALL_SOFT - b.x;
+            const penR = b.x - (scene.W - mx - WALL_SOFT);
+            const penT = my + WALL_SOFT - b.y;
+            const penB = b.y - (scene.H - my - WALL_SOFT);
+            if (penL > 0) b.vx += penL * WALL_SPRING * dt;
+            if (penR > 0) b.vx -= penR * WALL_SPRING * dt;
+            if (penT > 0) b.vy += penT * WALL_SPRING * dt;
+            if (penB > 0) b.vy -= penB * WALL_SPRING * dt;
+            if (menuObs) applyMenuForces(b, mx, my, menuObs, dt, menuRiseVy);
+
             b.vx *= DRAG;
             b.vy *= DRAG;
             b.rotV *= ROT_DRAG;
@@ -429,31 +666,18 @@
         });
 
         resolveCollisions(bodies);
+        resolveAnchorCollisions(bodies, getAnchorBodies(scene));
 
         bodies.forEach(({ el, b }) => {
             if (el.classList.contains("is-pulling")) return;
 
             const mx = b.w * 0.5;
             const my = b.h * 0.5;
-            if (b.x < mx) {
-                b.x = mx;
-                b.vx = Math.abs(b.vx) * WALL_REST;
-            }
-            if (b.x > scene.W - mx) {
-                b.x = scene.W - mx;
-                b.vx = -Math.abs(b.vx) * WALL_REST;
-            }
-            if (b.y < my) {
-                b.y = my;
-                b.vy = Math.abs(b.vy) * WALL_REST;
-            }
-            if (b.y > scene.H - my) {
-                b.y = scene.H - my;
-                b.vy = -Math.abs(b.vy) * WALL_REST;
-            }
+            resolveSceneWalls(b, mx, my, scene);
+            if (menuObs) softenMenuOverlap(b, mx, my, menuObs, dt);
 
-            if (Math.abs(b.vx) < 3) b.vx = 0;
-            if (Math.abs(b.vy) < 3) b.vy = 0;
+            if (Math.abs(b.vx) < WALL_VEL_MIN) b.vx = 0;
+            if (Math.abs(b.vy) < WALL_VEL_MIN) b.vy = 0;
 
             const spd = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
             b.scale = (1 + spd * 0.0004).toString();

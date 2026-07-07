@@ -11,6 +11,7 @@
 <script>
     import {
         SHAPE_GRIDS,
+        PIXEL_STRIDE,
         buildGooSvg,
         type ShapeKey,
     } from "../lib/gooGrids";
@@ -18,6 +19,11 @@
     const SPRING = 0.1;
     const DAMP = 0.78;
     const NEIGHBOR_PULL = 0.045;
+    const NEIGHBOR_LINK = 0.032;
+    const ANCHOR_AMBIENT = 4.5;
+    const ANCHOR_NEIGHBOR_LINK = 0.04;
+    const ANCHOR_SPRING = 0.08;
+    const ANCHOR_DAMP = 0.8;
     const GRAB_RADIUS = 52;
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -36,6 +42,7 @@
         wrap: HTMLElement;
         svg: SVGSVGElement;
         pixels: GooPixel[];
+        neighbors: Map<GooPixel, GooPixel[]>;
     };
 
     type GrabEntry = { px: GooPixel; offX: number; offY: number };
@@ -44,6 +51,20 @@
     const clusterByEl = new Map<HTMLElement, GooCluster>();
     let grab: { cluster: GooCluster; entries: GrabEntry[] } | null = null;
     let didDrag = false;
+
+    function buildNeighborMap(pixels: GooPixel[]): Map<GooPixel, GooPixel[]> {
+        const map = new Map<GooPixel, GooPixel[]>();
+        for (const px of pixels) {
+            const neigh: GooPixel[] = [];
+            for (const other of pixels) {
+                if (other === px) continue;
+                const gd = Math.hypot(other.hx - px.hx, other.hy - px.hy);
+                if (gd > 0 && gd <= PIXEL_STRIDE * 1.15) neigh.push(other);
+            }
+            map.set(px, neigh);
+        }
+        return map;
+    }
 
     function readPixels(wrap: HTMLElement): GooPixel[] {
         const pixels: GooPixel[] = [];
@@ -80,9 +101,18 @@
         if (clusterByEl.has(wrap)) return;
         const svg = wrap.querySelector<SVGSVGElement>("svg");
         if (!svg) return;
-        const cluster: GooCluster = { wrap, svg, pixels: readPixels(wrap) };
+        const pixels = readPixels(wrap);
+        const cluster: GooCluster = {
+            wrap,
+            svg,
+            pixels,
+            neighbors: buildNeighborMap(pixels),
+        };
         clusters.push(cluster);
         clusterByEl.set(wrap, cluster);
+        if (!wrap.dataset.bloomPhase) {
+            wrap.dataset.bloomPhase = String(Math.random() * Math.PI * 2);
+        }
     }
 
     function unregister(wrap: HTMLElement) {
@@ -206,12 +236,14 @@
         });
     }
 
-    function tickGoo(dt: number) {
+    function tickGoo(dt: number, time: number) {
         if (reducedMotion) return;
 
         const grabbed = new Set(grab?.entries.map((e) => e.px) ?? []);
 
         for (const cluster of clusters) {
+            const isAnchored = cluster.wrap.hasAttribute("data-no-float");
+            const bloomPhase = parseFloat(cluster.wrap.dataset.bloomPhase ?? "0");
             const grabCenters = grab?.cluster === cluster
                 ? grab.entries.map((e) => pixelCenter(e.px))
                 : [];
@@ -231,15 +263,32 @@
                     }
                 }
 
-                px.vx += -px.ox * SPRING;
-                px.vy += -px.oy * SPRING;
-                px.vx *= DAMP;
-                px.vy *= DAMP;
+                for (const other of cluster.neighbors.get(px) ?? []) {
+                    const link = isAnchored ? ANCHOR_NEIGHBOR_LINK : NEIGHBOR_LINK;
+                    px.vx += (other.ox - px.ox) * link;
+                    px.vy += (other.oy - px.oy) * link;
+                }
+
+                if (isAnchored) {
+                    const phase = px.hx * 0.07 + px.hy * 0.09 + bloomPhase;
+                    px.vx += Math.sin(time * 1.35 + phase) * ANCHOR_AMBIENT * 0.055;
+                    px.vy += Math.cos(time * 1.05 + phase + 0.8) * ANCHOR_AMBIENT * 0.048;
+                    px.vx += Math.sin(time * 2.15 + phase * 1.4) * ANCHOR_AMBIENT * 0.02;
+                    px.vy += Math.cos(time * 1.75 + phase * 0.9) * ANCHOR_AMBIENT * 0.017;
+                }
+
+                const spring = isAnchored ? ANCHOR_SPRING : SPRING;
+                const damp = isAnchored ? ANCHOR_DAMP : DAMP;
+                px.vx += -px.ox * spring;
+                px.vy += -px.oy * spring;
+                px.vx *= damp;
+                px.vy *= damp;
                 px.ox += px.vx * dt * 60;
                 px.oy += px.vy * dt * 60;
 
-                if (Math.abs(px.ox) < 0.02 && Math.abs(px.vx) < 0.02) px.ox = 0;
-                if (Math.abs(px.oy) < 0.02 && Math.abs(px.vy) < 0.02) px.oy = 0;
+                const dead = isAnchored ? 0.01 : 0.02;
+                if (Math.abs(px.ox) < dead && Math.abs(px.vx) < dead) px.ox = 0;
+                if (Math.abs(px.oy) < dead && Math.abs(px.vy) < dead) px.oy = 0;
 
                 applyTransform(px);
             }
@@ -277,10 +326,12 @@
     window.addEventListener("pointercancel", onPointerUp);
 
     let last = performance.now();
+    let gooTime = 0;
     function frame(now: number) {
         const dt = Math.min((now - last) / 1000, 0.033);
         last = now;
-        tickGoo(dt);
+        gooTime += dt;
+        tickGoo(dt, gooTime);
         requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);

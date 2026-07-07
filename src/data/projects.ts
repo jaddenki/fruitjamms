@@ -4,7 +4,7 @@ export const TAG_COLORS: Record<ProjectTag, string> = {
   game: "#2535E8",
   brand: "#FF28A8",
   web: "#00C44E",
-  video: "#E8850A",
+  video: "#ff940f",
 };
 
 export interface Project {
