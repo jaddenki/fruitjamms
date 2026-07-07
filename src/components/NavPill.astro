@@ -8,13 +8,28 @@ const allTags = Array.from(
 
 <!-- Floating member preview -->
 <div id="member-preview" aria-hidden="true">
-    <img id="member-preview-img" src="" alt="" />
+    <div class="swipe-slide">
+        <div class="swipe-media"><img src="" alt="" /></div>
+    </div>
+    <div class="swipe-slide">
+        <div class="swipe-media"><img src="" alt="" /></div>
+    </div>
 </div>
 
 <!-- Floating work preview -->
 <div id="work-preview" aria-hidden="true">
-    <img id="work-preview-img" src="" alt="" />
-    <video id="work-preview-video" muted loop playsinline></video>
+    <div class="swipe-slide">
+        <div class="swipe-media">
+            <img src="" alt="" />
+            <video muted loop playsinline></video>
+        </div>
+    </div>
+    <div class="swipe-slide">
+        <div class="swipe-media">
+            <img src="" alt="" />
+            <video muted loop playsinline></video>
+        </div>
+    </div>
 </div>
 
 <!-- Gooey backdrop: the white bar melds into the white bottom frame -->
@@ -191,6 +206,124 @@ const allTags = Array.from(
 
 <script>
     import { gsap } from "gsap";
+
+    /* ── Slide-deck swipe helper ──────────────────────────────────────────
+       Recycles two stacked `.swipe-slide` layers inside a preview container.
+       First appearance loads the front slide with no motion; switching between
+       items slides a fresh layer in *over* the old one, following the cursor's
+       travel direction, with a snappy overshoot + a parallax/scale settle on
+       the image for a gooey feel. */
+    type DeckContent = { img?: string; video?: string; alt?: string };
+
+    class SwipeDeck {
+        private slides: HTMLElement[];
+        private front = 0;
+        private swapTween: gsap.core.Timeline | null = null;
+
+        constructor(container: HTMLElement) {
+            this.slides = Array.from(
+                container.querySelectorAll<HTMLElement>(".swipe-slide"),
+            );
+            gsap.set(this.slides, { xPercent: 0, yPercent: 0 });
+            gsap.set(this.slides[0], { zIndex: 2 });
+            gsap.set(this.slides[1], { zIndex: 1 });
+        }
+
+        private fill(slide: HTMLElement, c: DeckContent) {
+            const media = slide.querySelector<HTMLElement>(".swipe-media")!;
+            const img = media.querySelector<HTMLImageElement>("img");
+            const video = media.querySelector<HTMLVideoElement>("video");
+            if (c.video && video) {
+                media.classList.add("is-video");
+                media.classList.remove("is-img");
+                if (media.dataset.src !== c.video) {
+                    video.src = c.video;
+                    media.dataset.src = c.video;
+                }
+                video.play().catch(() => {});
+            } else if (img) {
+                media.classList.add("is-img");
+                media.classList.remove("is-video");
+                if (media.dataset.src !== c.img) {
+                    img.src = c.img ?? "";
+                    media.dataset.src = c.img ?? "";
+                }
+                img.alt = c.alt ?? "";
+                if (video) video.pause();
+            }
+        }
+
+        // First appearance: load the front slide, reset layers, no swipe.
+        reset(c: DeckContent) {
+            if (this.swapTween) this.swapTween.kill();
+            const f = this.slides[this.front];
+            const b = this.slides[1 - this.front];
+            this.fill(f, c);
+            gsap.set(this.slides, { xPercent: 0, yPercent: 0 });
+            gsap.set(
+                [
+                    f.querySelector(".swipe-media"),
+                    b.querySelector(".swipe-media"),
+                ],
+                { xPercent: 0, yPercent: 0, scale: 1 },
+            );
+            gsap.set(f, { zIndex: 2 });
+            gsap.set(b, { zIndex: 1 });
+        }
+
+        // Switch content with a vertical slide-over (up or down only).
+        swap(c: DeckContent, _vx: number, vy: number) {
+            // Kill any in-progress swipe and SNAP that slide to its resting
+            // spot so it becomes the fully-covering "old" image underneath.
+            if (this.swapTween) this.swapTween.kill();
+            const oldFront = this.slides[this.front];
+            const oldMedia =
+                oldFront.querySelector<HTMLElement>(".swipe-media")!;
+            gsap.set(oldFront, { yPercent: 0, zIndex: 1 });
+            gsap.set(oldMedia, { yPercent: 0, scale: 1 });
+
+            const backIdx = 1 - this.front;
+            const back = this.slides[backIdx];
+            this.fill(back, c);
+
+            // Direction is vertical only: cursor moving down -> new slide comes
+            // up from below; moving up -> comes down from above.
+            const sign = vy >= 0 ? 1 : -1;
+            const backMedia =
+                back.querySelector<HTMLElement>(".swipe-media")!;
+
+            gsap.set(back, { zIndex: 2, xPercent: 0, yPercent: sign * 100 });
+            gsap.set(backMedia, {
+                xPercent: 0,
+                yPercent: sign * -18,
+                scale: 1.06,
+            });
+
+            // Commit the new slide as the front immediately, so the next swap
+            // always brings in a fresh layer over the most recent image.
+            this.front = backIdx;
+
+            const tl = gsap.timeline({
+                onComplete: () => {
+                    oldFront
+                        .querySelector<HTMLVideoElement>("video")
+                        ?.pause();
+                },
+            });
+            tl.to(back, { yPercent: 0, duration: 0.9, ease: "expo.out" }, 0);
+            tl.to(
+                backMedia,
+                {
+                    yPercent: 0,
+                    scale: 1,
+                    duration: 1.0,
+                    ease: "expo.out",
+                },
+                0,
+            );
+            this.swapTween = tl;
+        }
+    }
 
     const pill = document.getElementById("nav-pill")!;
     const panel = document.getElementById("menu-panel")!;
@@ -552,11 +685,11 @@ const allTags = Array.from(
 
     /* ── Member preview on hover ── */
     const memberPreview = document.getElementById("member-preview")!;
-    const memberPreviewImg = document.getElementById(
-        "member-preview-img",
-    ) as HTMLImageElement;
+    const memberDeck = new SwipeDeck(memberPreview);
 
     let previewTween: gsap.core.Tween | gsap.core.Timeline | null = null;
+    let memberActive = false;
+    let memberLeaveTimer: ReturnType<typeof setTimeout> | null = null;
     let mouseVX = 0,
         mouseVY = 0,
         lastMouseX = 0,
@@ -582,27 +715,47 @@ const allTags = Array.from(
 
     document.querySelectorAll(".team-row").forEach((row) => {
         row.addEventListener("mouseenter", (e) => {
-            const src = (row as HTMLElement).dataset.avatar!;
-            memberPreviewImg.src = src;
-            memberPreviewImg.alt = (
-                row.querySelector(".team-name") as HTMLElement
-            ).textContent!;
-
-            gsap.set(memberPreview, {
-                left: (e as MouseEvent).clientX + PREVIEW_OFFSET_X,
-                top: (e as MouseEvent).clientY + PREVIEW_OFFSET_Y,
-            });
+            if (memberLeaveTimer) {
+                clearTimeout(memberLeaveTimer);
+                memberLeaveTimer = null;
+            }
+            const content = {
+                img: (row as HTMLElement).dataset.avatar!,
+                alt: (row.querySelector(".team-name") as HTMLElement)
+                    .textContent!,
+            };
             if (previewTween) previewTween.kill();
-            previewTween = gsap.fromTo(
-                memberPreview,
-                { opacity: 0, scale: 0.55 },
-                {
+
+            if (!memberActive) {
+                // First hover: full entrance from the cursor.
+                memberDeck.reset(content);
+                gsap.set(memberPreview, {
+                    left: (e as MouseEvent).clientX + PREVIEW_OFFSET_X,
+                    top: (e as MouseEvent).clientY + PREVIEW_OFFSET_Y,
+                });
+                previewTween = gsap.fromTo(
+                    memberPreview,
+                    { opacity: 0, scale: 0.55 },
+                    {
+                        opacity: 1,
+                        scale: 1,
+                        duration: 1.0,
+                        ease: "elastic.out(0.85, 0.6)",
+                    },
+                );
+                memberActive = true;
+            } else {
+                // Switching rows: keep visible, swipe the new avatar over.
+                followX((e as MouseEvent).clientX + PREVIEW_OFFSET_X);
+                followY((e as MouseEvent).clientY + PREVIEW_OFFSET_Y);
+                memberDeck.swap(content, mouseVX, mouseVY);
+                previewTween = gsap.to(memberPreview, {
                     opacity: 1,
                     scale: 1,
-                    duration: 1.0,
-                    ease: "elastic.out(0.85, 0.6)",
-                },
-            );
+                    duration: 0.15,
+                    ease: "power2.out",
+                });
+            }
         });
 
         row.addEventListener("mousemove", (e) => {
@@ -611,30 +764,31 @@ const allTags = Array.from(
         });
 
         row.addEventListener("mouseleave", () => {
-            if (previewTween) previewTween.kill();
-            const tl = gsap.timeline();
-            tl.to(
-                memberPreview,
-                { opacity: 0, duration: 0.1, ease: "none" },
-                0,
-            );
-            tl.to(
-                memberPreview,
-                { scale: 0.8, duration: 0.38, ease: "circ.out" },
-                0,
-            );
-            previewTween = tl;
+            // Delay the fade so moving to the next row swipes instead of
+            // replaying the entrance.
+            memberLeaveTimer = setTimeout(() => {
+                memberActive = false;
+                if (previewTween) previewTween.kill();
+                const tl = gsap.timeline();
+                tl.to(
+                    memberPreview,
+                    { opacity: 0, duration: 0.1, ease: "none" },
+                    0,
+                );
+                tl.to(
+                    memberPreview,
+                    { scale: 0.8, duration: 0.38, ease: "circ.out" },
+                    0,
+                );
+                previewTween = tl;
+                memberLeaveTimer = null;
+            }, 60);
         });
     });
 
     /* ── Work preview on hover ── */
     const workPreview = document.getElementById("work-preview")!;
-    const workPreviewImg = document.getElementById(
-        "work-preview-img",
-    ) as HTMLImageElement;
-    const workPreviewVideo = document.getElementById(
-        "work-preview-video",
-    ) as HTMLVideoElement;
+    const workDeck = new SwipeDeck(workPreview);
 
     const WORK_PREVIEW_OFFSET_X = 28;
     const WORK_PREVIEW_OFFSET_Y = -160;
@@ -661,26 +815,16 @@ const allTags = Array.from(
                 workLeaveTimer = null;
             }
 
-            if (previewVideo) {
-                workPreview.classList.add("showing-video");
-                workPreview.classList.remove("showing-img");
-                if (workPreviewVideo.src !== previewVideo) {
-                    workPreviewVideo.src = previewVideo;
-                }
-                workPreviewVideo.play().catch(() => {});
-            } else if (previewImg) {
-                workPreview.classList.add("showing-img");
-                workPreview.classList.remove("showing-video");
-                workPreviewImg.src = previewImg;
-                workPreviewImg.alt = item.querySelector(".work-label")!
-                    .textContent!;
-                workPreviewVideo.pause();
-            }
+            const label = item.querySelector(".work-label")!.textContent!;
+            const content = previewVideo
+                ? { video: previewVideo, alt: label }
+                : { img: previewImg, alt: label };
 
             if (workPreviewTween) workPreviewTween.kill();
 
             if (!workPreviewActive) {
                 // First hover in this session: full entrance from the cursor.
+                workDeck.reset(content);
                 gsap.set(workPreview, {
                     left: (e as MouseEvent).clientX + WORK_PREVIEW_OFFSET_X,
                     top: (e as MouseEvent).clientY + WORK_PREVIEW_OFFSET_Y,
@@ -697,9 +841,11 @@ const allTags = Array.from(
                 );
                 workPreviewActive = true;
             } else {
-                // Switching directly between items: stay visible, just glide + swap content.
+                // Switching directly between items: stay visible and swipe the
+                // new preview in over the old one, following cursor direction.
                 workFollowX((e as MouseEvent).clientX + WORK_PREVIEW_OFFSET_X);
                 workFollowY((e as MouseEvent).clientY + WORK_PREVIEW_OFFSET_Y);
+                workDeck.swap(content, mouseVX, mouseVY);
                 workPreviewTween = gsap.to(workPreview, {
                     opacity: 1,
                     scale: 1,
@@ -721,7 +867,11 @@ const allTags = Array.from(
                 workPreviewActive = false;
                 if (workPreviewTween) workPreviewTween.kill();
                 const tl = gsap.timeline({
-                    onComplete: () => workPreviewVideo.pause(),
+                    onComplete: () => {
+                        workPreview
+                            .querySelectorAll("video")
+                            .forEach((v) => v.pause());
+                    },
                 });
                 tl.to(
                     workPreview,
