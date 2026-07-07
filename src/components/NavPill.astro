@@ -33,36 +33,37 @@ const allTags = Array.from(
 
 <!-- Nav pill / panel -->
 <div id="nav-pill">
-    <!-- Icon visible in pill state: pixel caret ^ (010 / 101) -->
-    <div id="pill-icon" aria-hidden="true">
+    <!-- Toggle: three gooey pixel blocks forming ^ (flips to v on open) -->
+    <button id="pill-icon" type="button" aria-label="Toggle menu">
         <svg
-            width="30"
+            id="pill-arrow"
+            width="28"
             height="20"
-            viewBox="0 0 39 26"
+            viewBox="0 0 40 27"
             xmlns="http://www.w3.org/2000/svg"
             shape-rendering="crispEdges"
             overflow="visible"
         >
             <defs>
                 <filter
-                    id="choke-pi"
-                    x="-30%"
-                    y="-30%"
-                    width="160%"
-                    height="160%"
+                    id="goo-pi"
+                    x="-40%"
+                    y="-40%"
+                    width="180%"
+                    height="180%"
                     color-interpolation-filters="sRGB"
                 >
-                    <feGaussianBlur in="SourceGraphic" stdDeviation="1.6" result="b"></feGaussianBlur>
-                    <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -8"></feColorMatrix>
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="2.4" result="b"></feGaussianBlur>
+                    <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -7"></feColorMatrix>
                 </filter>
             </defs>
-            <g fill="#ff28a8" filter="url(#choke-pi)">
-                <rect x="13" y="0"  width="13" height="13"/>
-                <rect x="0"  y="13" width="13" height="13"/>
-                <rect x="26" y="13" width="13" height="13"/>
+            <g fill="#ff28a8" filter="url(#goo-pi)">
+                <rect id="pa-c" x="14" y="1"  width="12" height="12"/>
+                <rect id="pa-l" x="2"  y="14" width="12" height="12"/>
+                <rect id="pa-r" x="26" y="14" width="12" height="12"/>
             </g>
         </svg>
-    </div>
+    </button>
 
     <!-- Full menu panel (revealed after morph) -->
     <div id="menu-panel" aria-hidden="true" role="dialog" aria-label="Menu">
@@ -177,22 +178,10 @@ const allTags = Array.from(
             >about</button
         >
         {/* <button class="tab-btn" data-tab="about" aria-pressed="false">blog</button> */}
-        <button id="close-btn" aria-label="Close menu">
-            <svg
-                width="14"
-                height="14"
-                viewBox="0 0 14 14"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-            >
-                <path
-                    d="M1 1L13 13M13 1L1 13"
-                    stroke="#ffffff"
-                    stroke-width="2"
-                    stroke-linecap="round"></path>
-            </svg>
-        </button>
     </nav>
+
+    <!-- White fade so scrolled content melts under the arrow toggle -->
+    <div id="pill-fade" aria-hidden="true"></div>
 </div>
 
 <!-- Scroll pill: floats on the black to the panel's right -->
@@ -206,7 +195,11 @@ const allTags = Array.from(
     const pill = document.getElementById("nav-pill")!;
     const panel = document.getElementById("menu-panel")!;
     const pillIcon = document.getElementById("pill-icon")!;
-    const closeBtn = document.getElementById("close-btn")!;
+    const arrowCenter = document.getElementById("pa-c")!;
+    const arrowSides = [
+        document.getElementById("pa-l")!,
+        document.getElementById("pa-r")!,
+    ];
     const sideTabs = document.getElementById("side-tabs")!;
     const scrollRail = document.getElementById("scroll-rail")!;
     const scrollThumb = document.getElementById("scroll-thumb")!;
@@ -244,6 +237,24 @@ const allTags = Array.from(
         "(prefers-reduced-motion: reduce)",
     ).matches;
     const dur = reducedMotion ? 0 : 1;
+
+    /* ── Gooey arrow morph ──────────────────────────────────────────────
+       ^ (closed) ⇄ v (open). The centre block slides down while the two
+       legs slide up; they cross through the middle and, thanks to the goo
+       filter on the group, stretch and meld into each other on the way. */
+    function morphArrow(down: boolean) {
+        gsap.to(arrowCenter, {
+            y: down ? 13 : 0,
+            duration: 0.55 * dur || 0.001,
+            ease: "back.out(1.7)",
+        });
+        gsap.to(arrowSides, {
+            y: down ? -13 : 0,
+            duration: 0.55 * dur || 0.001,
+            ease: "back.out(1.7)",
+            delay: 0.04 * dur,
+        });
+    }
 
     function panelWidth() {
         return Math.min(300, window.innerWidth - 48);
@@ -285,12 +296,13 @@ const allTags = Array.from(
                 syncThumb();
             },
         });
-        tl.to(pillIcon, { opacity: 0, duration: 0.1 * dur || 0.001 }, 0);
+        morphArrow(true);
         tl.to(
             sideTabs,
             {
                 autoAlpha: 1,
                 duration: 0.16 * dur || 0.001,
+                ease: "power2.inOut",
                 onStart: () => {
                     sideTabs.style.pointerEvents = "auto";
                     sideTabs.removeAttribute("aria-hidden");
@@ -306,7 +318,7 @@ const allTags = Array.from(
                 width: w,
                 borderRadius: "18px 18px 0 0",
                 duration: 0.5 * dur || 0.001,
-                ease: "expo.out",
+                ease: "power2.inOut",
             },
             0,
         );
@@ -315,6 +327,7 @@ const allTags = Array.from(
             {
                 opacity: 1,
                 duration: 0.3 * dur || 0.001,
+                ease: "power2.inOut",
                 onStart: () => {
                     panel.style.pointerEvents = "auto";
                     panel.removeAttribute("aria-hidden");
@@ -343,6 +356,7 @@ const allTags = Array.from(
             {
                 autoAlpha: 0,
                 duration: 0.12 * dur || 0.001,
+                ease: "power2.inOut",
                 onComplete: () => {
                     panel.style.pointerEvents = "none";
                     panel.setAttribute("aria-hidden", "true");
@@ -360,20 +374,25 @@ const allTags = Array.from(
                 width: 290,
                 borderRadius: "18px 18px 0 0",
                 duration: 0.34 * dur || 0.001,
-                ease: "expo.in",
+                ease: "power2.inOut",
             },
             0.08 * dur || 0.001,
         );
-        tl.to(
-            pillIcon,
-            { opacity: 1, duration: 0.16 * dur || 0.001 },
-            0.34 * dur || 0.001,
-        );
+        morphArrow(false);
         tl.set(panel, { opacity: 0, visibility: "" });
     }
 
     pill.addEventListener("click", () => {
         if (!isOpen) openMenu();
+    });
+
+    // The arrow itself toggles: it stays visible as the down-caret handle
+    // that collapses the panel back down.
+    pillIcon.addEventListener("click", (e) => {
+        e.stopPropagation();
+        clearTimeout(autoOpenTimer);
+        if (isOpen) closeMenu();
+        else openMenu();
     });
 
     /* ── Auto-open once, after a delay, if the visitor hasn't touched it ── */
@@ -383,10 +402,6 @@ const allTags = Array.from(
     }, AUTO_OPEN_DELAY);
     pill.addEventListener("click", () => clearTimeout(autoOpenTimer), {
         once: true,
-    });
-    closeBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        closeMenu();
     });
     document.addEventListener("keydown", (e) => {
         if (e.key === "Escape" && isOpen) closeMenu();
