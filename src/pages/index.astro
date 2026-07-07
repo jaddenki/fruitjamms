@@ -329,22 +329,36 @@ const mascotGrid = [
                 aspect-ratio: 16 / 9;
                 border-radius: 14px;
                 overflow: hidden;
-                background: #000000;
                 transform-origin: bottom left;
             }
-            #work-preview img,
-            #work-preview video {
+            /* Slide-deck swipe layers (shared by work + member previews).
+               The container clips to its rounded frame, so anything outside the
+               border is cut off. Each slide keeps its own rounded corners so the
+               incoming thumbnail reads as a rounded card as it slides in; the
+               media is overscanned so parallax/scale never reveals an edge gap. */
+            .swipe-slide {
+                position: absolute;
+                inset: 0;
+                overflow: hidden;
+                border-radius: inherit;
+                will-change: transform;
+                backface-visibility: hidden;
+            }
+            #work-preview .swipe-slide { background: #000000; }
+            .swipe-media {
+                position: absolute;
+                inset: -8%;
+                will-change: transform;
+            }
+            .swipe-media img,
+            .swipe-media video {
                 width: 100%;
                 height: 100%;
                 object-fit: cover;
-                display: block;
-            }
-            #work-preview img,
-            #work-preview video {
                 display: none;
             }
-            #work-preview.showing-img img { display: block; }
-            #work-preview.showing-video video { display: block; }
+            .swipe-media.is-img img { display: block; }
+            .swipe-media.is-video video { display: block; }
 
             /* ── Tabs ── */
             #side-tabs {
@@ -453,7 +467,7 @@ const mascotGrid = [
                 height: 120px;
                 transform-origin: bottom left;
             }
-            #member-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+            #member-preview { overflow: hidden; }
 
             /* ── Scroll rail ── */
             #scroll-rail {
