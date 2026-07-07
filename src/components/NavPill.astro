@@ -17,6 +17,20 @@ const allTags = Array.from(
     <video id="work-preview-video" muted loop playsinline></video>
 </div>
 
+<!-- Gooey backdrop: the white bar melds into the white bottom frame -->
+<svg width="0" height="0" style="position:absolute;pointer-events:none;" aria-hidden="true">
+    <defs>
+        <filter id="menu-goo" x="-50%" y="-50%" width="200%" height="200%" color-interpolation-filters="sRGB">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="7" result="b"></feGaussianBlur>
+            <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -10"></feColorMatrix>
+        </filter>
+    </defs>
+</svg>
+<div id="nav-goo" aria-hidden="true">
+    <div class="nav-goo-frame"></div>
+    <div class="nav-goo-riser"></div>
+</div>
+
 <!-- Nav pill / panel -->
 <div id="nav-pill">
     <!-- Icon visible in pill state: pixel caret ^ (010 / 101) -->
@@ -42,7 +56,7 @@ const allTags = Array.from(
                     <feColorMatrix in="b" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -8"></feColorMatrix>
                 </filter>
             </defs>
-            <g fill="#ffffff" filter="url(#choke-pi)">
+            <g fill="#ff28a8" filter="url(#choke-pi)">
                 <rect x="13" y="0"  width="13" height="13"/>
                 <rect x="0"  y="13" width="13" height="13"/>
                 <rect x="26" y="13" width="13" height="13"/>
@@ -132,7 +146,7 @@ const allTags = Array.from(
                 rel="noopener noreferrer"
             >
                 <span class="team-name">alicia</span>
-                <span class="team-role">lead artist</span>
+                <span class="team-role">design engineer</span>
             </a>
             <a
                 href="https://x.com/RandomPossibly"
@@ -202,6 +216,30 @@ const allTags = Array.from(
     let isOpen = false;
     let animating = false;
 
+    /* ── Gooey backdrop sync ──────────────────────────────────────────────
+       A white "riser" tracks the pill's live box and a fixed white "frame"
+       strip sits on the bottom edge. Both live inside #nav-goo (which carries
+       the SVG goo filter), so the two white shapes melt together where the bar
+       meets the frame — and stretch a gooey neck as the bar lifts on hover. */
+    const gooRiser = document.querySelector<HTMLElement>(".nav-goo-riser");
+    const gooFrame = document.querySelector<HTMLElement>(".nav-goo-frame");
+    const RISER_MAX = 84;
+    const FRAME_PAD = 26;
+    function syncGoo() {
+        if (gooRiser && gooFrame) {
+            const r = pill.getBoundingClientRect();
+            const h = Math.min(r.height, RISER_MAX);
+            gooRiser.style.left = r.left + "px";
+            gooRiser.style.width = r.width + "px";
+            gooRiser.style.top = r.bottom - h + "px";
+            gooRiser.style.height = h + "px";
+            gooFrame.style.left = r.left - FRAME_PAD + "px";
+            gooFrame.style.width = r.width + FRAME_PAD * 2 + "px";
+        }
+        requestAnimationFrame(syncGoo);
+    }
+    requestAnimationFrame(syncGoo);
+
     const reducedMotion = window.matchMedia(
         "(prefers-reduced-motion: reduce)",
     ).matches;
@@ -238,17 +276,21 @@ const allTags = Array.from(
         pill.classList.add("is-open");
         const w = panelWidth();
         setPanelWidthVar(w);
+        // Keep the custom scroll rail hidden until the panel is sized, so it
+        // never flashes a default-sized thumb on the first open.
+        gsap.set(scrollRail, { autoAlpha: 0 });
         const tl = gsap.timeline({
             onComplete: () => {
                 animating = false;
+                syncThumb();
             },
         });
-        tl.to(pillIcon, { opacity: 0, duration: 0.12 * dur || 0.001 }, 0);
+        tl.to(pillIcon, { opacity: 0, duration: 0.1 * dur || 0.001 }, 0);
         tl.to(
-            [sideTabs, scrollRail],
+            sideTabs,
             {
                 autoAlpha: 1,
-                duration: 0.18 * dur || 0.001,
+                duration: 0.16 * dur || 0.001,
                 onStart: () => {
                     sideTabs.style.pointerEvents = "auto";
                     sideTabs.removeAttribute("aria-hidden");
@@ -262,9 +304,9 @@ const allTags = Array.from(
                 bottom: 0,
                 height: "82vh",
                 width: w,
-                borderRadius: "16px 16px 0 0",
-                duration: 0.52 * dur || 0.001,
-                ease: "power4.out",
+                borderRadius: "18px 18px 0 0",
+                duration: 0.5 * dur || 0.001,
+                ease: "expo.out",
             },
             0,
         );
@@ -272,15 +314,18 @@ const allTags = Array.from(
             panel,
             {
                 opacity: 1,
-                duration: 0.36 * dur || 0.001,
+                duration: 0.3 * dur || 0.001,
                 onStart: () => {
                     panel.style.pointerEvents = "auto";
                     panel.removeAttribute("aria-hidden");
-                    syncThumb();
                 },
             },
-            0.1 * dur || 0.001,
+            0.08 * dur || 0.001,
         );
+        // Size the thumb once the panel is near full height, then fade the rail
+        // in — avoids the first-open scrollbar flash.
+        tl.call(syncThumb, [], 0.3 * dur || 0.001);
+        tl.to(scrollRail, { autoAlpha: 1, duration: 0.2 * dur || 0.001 }, 0.34 * dur || 0.001);
     }
 
     function closeMenu() {
@@ -297,7 +342,7 @@ const allTags = Array.from(
             [panel, sideTabs, scrollRail],
             {
                 autoAlpha: 0,
-                duration: 0.15 * dur || 0.001,
+                duration: 0.12 * dur || 0.001,
                 onComplete: () => {
                     panel.style.pointerEvents = "none";
                     panel.setAttribute("aria-hidden", "true");
@@ -313,16 +358,16 @@ const allTags = Array.from(
                 bottom: "-16px",
                 height: "56px",
                 width: 290,
-                borderRadius: "16px 16px 0 0",
-                duration: 0.32 * dur || 0.001,
-                ease: "power4.in",
+                borderRadius: "18px 18px 0 0",
+                duration: 0.34 * dur || 0.001,
+                ease: "expo.in",
             },
-            0.12 * dur || 0.001,
+            0.08 * dur || 0.001,
         );
         tl.to(
             pillIcon,
-            { opacity: 1, duration: 0.18 * dur || 0.001 },
-            0.48 * dur || 0.001,
+            { opacity: 1, duration: 0.16 * dur || 0.001 },
+            0.34 * dur || 0.001,
         );
         tl.set(panel, { opacity: 0, visibility: "" });
     }

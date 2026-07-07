@@ -132,16 +132,49 @@ const mascotGrid = [
                 #mascot svg { animation: none !important; }
             }
 
+            /* ── Gooey backdrop: white bar melds into the white bottom frame ── */
+            #nav-goo {
+                position: fixed;
+                inset: 0;
+                z-index: 45;
+                pointer-events: none;
+                filter: url(#menu-goo);
+            }
+            .nav-goo-frame,
+            .nav-goo-riser {
+                position: fixed;
+                background: #ffffff;
+                will-change: transform, top, height, left, width;
+            }
+            /* Closed-state geometry so the goo is correct on first paint,
+               before the JS sync loop takes over (avoids a load flash). */
+            .nav-goo-frame {
+                bottom: 0;
+                height: 16px;
+                left: calc(50% - 171px);
+                width: 342px;
+            }
+            .nav-goo-riser {
+                border-radius: 18px 18px 0 0;
+                left: calc(50% - 145px);
+                width: 290px;
+                top: calc(100vh - 40px);
+                height: 56px;
+            }
+            @media (prefers-reduced-motion: reduce) {
+                #nav-goo { display: none; }
+            }
+
             /* ── Nav pill (morphs into panel) ── */
             #nav-pill {
                 position: fixed;
                 bottom: -16px;
                 left: 50%;
                 transform: translateX(-50%);
-                width: var(--panel-w);
+                width: 290px;
                 height: 56px;
-                background: #ff28a8;
-                border-radius: 16px 16px 0 0;
+                background: #ffffff;
+                border-radius: 18px 18px 0 0;
                 cursor: pointer;
                 z-index: 50;
                 overflow: hidden;
@@ -153,10 +186,10 @@ const mascotGrid = [
                 transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1);
             }
             #nav-pill:not(.is-open):hover {
-                transform: translateX(-50%) translateY(-10px) scale(1.04);
+                transform: translateX(-50%) translateY(-10px);
             }
             #nav-pill:not(.is-open):active {
-                transform: translateX(-50%) translateY(-4px) scale(0.97);
+                transform: translateX(-50%) translateY(-4px);
                 transition: transform 0.12s ease-out;
             }
 
