@@ -24,6 +24,13 @@ export const projects: Project[] = [
     tags: ["brand"],
   },
   {
+    label: "kiwi's shop",
+    href: "https://shop.kiwis.page/",
+    preview: "/img/kiwi-shop.webp",
+    tags: ["brand", "web"],
+    external: true,
+  },
+  {
     label: "etea.cafe",
     href: "https://etea.cafe",
     preview: "/img/etea-cafe.webp",

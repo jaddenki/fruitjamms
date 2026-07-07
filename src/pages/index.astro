@@ -29,6 +29,49 @@ const mascotGrid = [
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="icon" type="image/png" href="/img/favicon.png" />
         <title>jamms</title>
+
+        <!-- SEO -->
+        <meta
+            name="description"
+            content="a product studio designing & shipping games, brand, and web work for those who want it to stick."
+        />
+        <link rel="canonical" href="https://jam.ms/" />
+        <meta name="robots" content="index, follow" />
+        <meta name="theme-color" content="#ff28a8" />
+
+        <!-- Open Graph / social preview -->
+        <meta property="og:type" content="website" />
+        <meta property="og:site_name" content="jamms" />
+        <meta property="og:title" content="jamms" />
+        <meta
+            property="og:description"
+            content="a product studio designing & shipping games, brand, and web work for those who want it to stick."
+        />
+        <meta property="og:url" content="https://jam.ms/" />
+        <meta property="og:image" content="https://jam.ms/img/og.png" />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta property="og:image:alt" content="jamms" />
+
+        <!-- Twitter -->
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="jamms" />
+        <meta
+            name="twitter:description"
+            content="a product studio designing & shipping games, brand, and web work for those who want it to stick."
+        />
+        <meta name="twitter:image" content="https://jam.ms/img/og.png" />
+
+        <!-- Structured data -->
+        <script type="application/ld+json" is:inline set:html={JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            name: "jamms",
+            url: "https://jam.ms/",
+            logo: "https://jam.ms/img/favicon.png",
+            description: "a product studio designing & shipping games, brand, and web work for those who want it to stick.",
+            email: "fruit@jam.ms",
+        })} />
         <script type="importmap" is:inline>
             { "imports": { "three": "https://esm.sh/three@0.170.0" } }
         </script>
@@ -231,7 +274,7 @@ const mascotGrid = [
                 right: 0;
                 bottom: 0;
                 overflow-y: auto;
-                padding: 20px 20px 72px 20px;
+                padding: 12px 20px 72px 20px;
                 display: flex;
                 flex-direction: column;
                 gap: 0;
@@ -360,40 +403,59 @@ const mascotGrid = [
             .swipe-media.is-img img { display: block; }
             .swipe-media.is-video video { display: block; }
 
-            /* ── Tabs ── */
+            /* ── Tabs (active tab is a pink pill; inactive are greyed) ── */
             #side-tabs {
                 position: absolute;
-                top: 0;
+                top: 12px;
+                /* Centered via auto margins (not transform) so the GSAP
+                   swipe can own the transform without losing centering. */
                 left: 0;
-                width: 100%;
-                background: #ff28a8;
-                display: flex;
+                right: 0;
+                margin: 0 auto;
+                width: fit-content;
+                background: none;
+                display: inline-flex;
                 flex-direction: row;
                 align-items: center;
                 justify-content: center;
                 padding: 0;
-                gap: 0;
+                gap: 4px;
                 z-index: 51;
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
             }
+            /* Sliding pink pill that animates between the active tab. */
+            .tab-indicator {
+                position: absolute;
+                top: 0;
+                left: 0;
+                height: 100%;
+                width: 0;
+                background: #ff28a8;
+                border-radius: 999px;
+                z-index: 0;
+                pointer-events: none;
+            }
             .tab-btn {
+                position: relative;
+                z-index: 1;
                 writing-mode: horizontal-tb;
                 font-family: "Authentic Sans", sans-serif;
                 font-weight: bold;
                 font-size: 14px;
                 letter-spacing: -0.05em;
-                color: rgba(255, 255, 255, 0.5);
+                color: rgba(0, 0, 0, 0.4);
                 background: none;
                 border: none;
+                border-radius: 999px;
                 cursor: pointer;
-                padding: 14px 18px;
-                transition: color 0.15s, transform 0.18s cubic-bezier(0.23, 1, 0.32, 1);
+                padding: 8px 20px;
+                transition: color 0.4s ease-in-out, transform 0.18s cubic-bezier(0.23, 1, 0.32, 1);
                 text-transform: lowercase;
             }
             .tab-btn.active { color: #ffffff; }
-            .tab-btn:hover:not(.active) { color: #ffffff; transform: scale(1.08); }
+            .tab-btn:hover:not(.active) { color: rgba(0, 0, 0, 0.7); }
             .tab-btn:active { transform: scale(0.94); transition: transform 0.1s ease-out; }
 
             /* ── Team panel ── */
@@ -404,7 +466,7 @@ const mascotGrid = [
                 left: 0;
                 right: 0;
                 bottom: 0;
-                padding: 16px 20px 72px 20px;
+                padding: 12px 20px 72px 20px;
                 flex-direction: column;
                 overflow-y: auto;
                 scrollbar-width: none;
