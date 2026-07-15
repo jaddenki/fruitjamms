@@ -528,8 +528,11 @@ const mascotGrid = [
                 width: 120px;
                 height: 120px;
                 transform-origin: bottom left;
+                overflow: hidden;
+                border-radius: 16px;
             }
-            #member-preview { overflow: hidden; }
+            /* Avatars fill the box flush (no overscan) so they aren't zoomed. */
+            #member-preview .swipe-media { inset: 0; }
 
             /* ── Scroll rail ── */
             #scroll-rail {
