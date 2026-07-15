@@ -137,7 +137,7 @@ const allTags = Array.from(
             <a
                 href="https://jadden.xyz"
                 class="team-row"
-                data-avatar="/img/jadden.png"
+                data-avatar="/img/jadden.svg"
                 target="_blank"
                 rel="noopener noreferrer"
             >
@@ -147,7 +147,7 @@ const allTags = Array.from(
             <a
                 href="https://saahil.xyz"
                 class="team-row"
-                data-avatar="/img/saahil.png"
+                data-avatar="/img/saahil.svg"
                 target="_blank"
                 rel="noopener noreferrer"
             >
@@ -157,7 +157,7 @@ const allTags = Array.from(
             <a
                 href="https://aliciazhou.xyz"
                 class="team-row"
-                data-avatar="/img/alicia.png"
+                data-avatar="/img/alicia.svg"
                 target="_blank"
                 rel="noopener noreferrer"
             >
@@ -167,7 +167,7 @@ const allTags = Array.from(
             <a
                 href="https://x.com/RandomPossibly"
                 class="team-row"
-                data-avatar="/img/mason.png"
+                data-avatar="/img/mason.svg"
                 target="_blank"
                 rel="noopener noreferrer"
             >
@@ -220,11 +220,21 @@ const allTags = Array.from(
         private slides: HTMLElement[];
         private front = 0;
         private swapTween: gsap.core.Timeline | null = null;
+        private parallax: number;
+        private zoom: number;
 
-        constructor(container: HTMLElement) {
+        constructor(
+            container: HTMLElement,
+            opts: { parallax?: number; zoom?: number } = {},
+        ) {
             this.slides = Array.from(
                 container.querySelectorAll<HTMLElement>(".swipe-slide"),
             );
+            // How far the media lags behind the slide (% of media box) and the
+            // settle-in scale. Media overscan must cover `parallax`, so a deck
+            // with no overscan (e.g. flush avatars) should pass parallax: 0.
+            this.parallax = opts.parallax ?? 18;
+            this.zoom = opts.zoom ?? 1.06;
             gsap.set(this.slides, { xPercent: 0, yPercent: 0 });
             gsap.set(this.slides[0], { zIndex: 2 });
             gsap.set(this.slides[1], { zIndex: 1 });
@@ -296,8 +306,8 @@ const allTags = Array.from(
             gsap.set(back, { zIndex: 2, xPercent: 0, yPercent: sign * 100 });
             gsap.set(backMedia, {
                 xPercent: 0,
-                yPercent: sign * -18,
-                scale: 1.06,
+                yPercent: sign * -this.parallax,
+                scale: this.zoom,
             });
 
             // Commit the new slide as the front immediately, so the next swap
@@ -595,22 +605,22 @@ const allTags = Array.from(
     // that collapses the panel back down.
     pillIcon.addEventListener("click", (e) => {
         e.stopPropagation();
-        clearTimeout(autoOpenTimer);
+        // clearTimeout(autoOpenTimer);
         if (isOpen) closeMenu();
         else openMenu();
     });
 
     /* ── Auto-open once, after a delay, if the visitor hasn't touched it ── */
-    const AUTO_OPEN_DELAY = 1000;
-    const autoOpenTimer = setTimeout(() => {
-        if (!isOpen) openMenu();
-    }, AUTO_OPEN_DELAY);
-    pill.addEventListener("click", () => clearTimeout(autoOpenTimer), {
-        once: true,
-    });
-    document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && isOpen) closeMenu();
-    });
+    // const AUTO_OPEN_DELAY = 1000;
+    // const autoOpenTimer = setTimeout(() => {
+    //     if (!isOpen) openMenu();
+    // }, AUTO_OPEN_DELAY);
+    // pill.addEventListener("click", () => clearTimeout(autoOpenTimer), {
+    //     once: true,
+    // });
+    // document.addEventListener("keydown", (e) => {
+    //     if (e.key === "Escape" && isOpen) closeMenu();
+    // });
 
     window.addEventListener("resize", () => {
         if (!isOpen) return;
@@ -830,7 +840,9 @@ const allTags = Array.from(
 
     /* ── Member preview on hover ── */
     const memberPreview = document.getElementById("member-preview")!;
-    const memberDeck = new SwipeDeck(memberPreview);
+    // Avatars sit flush (no media overscan), so no parallax to avoid gaps —
+    // just a subtle scale settle keeps a little life on the swipe.
+    const memberDeck = new SwipeDeck(memberPreview, { parallax: 0 });
 
     let previewTween: gsap.core.Tween | gsap.core.Timeline | null = null;
     let memberActive = false;
