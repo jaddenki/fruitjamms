@@ -81,7 +81,6 @@ const ogImage = new URL('/img/og.png', Astro.site).href;
         </a>
         <nav class="nav">
           <a href="/projects" class="nav-link" data-nav="projects">projects</a>
-          <a href="/team" class="nav-link" data-nav="team">team</a>
         </nav>
       </aside>
       <main class="content">
@@ -99,8 +98,6 @@ const ogImage = new URL('/img/og.png', Astro.site).href;
           const nav = link.getAttribute('data-nav');
           
           if (nav === 'projects' && (pathname.startsWith('/projects') || pathname.startsWith('/quiz'))) {
-            link.classList.add('active');
-          } else if (nav === 'team' && pathname.startsWith('/team')) {
             link.classList.add('active');
           }
         });

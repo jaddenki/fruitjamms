@@ -678,13 +678,32 @@ const allTags = Array.from(
             (item) => firstRects.has(item) && willShow.has(item),
         );
 
+        // The hover CSS transition on .work-item's `transform` would otherwise
+        // fight with GSAP animating that same property here (causing a laggy
+        // double-animation/overshoot). Suspend it for the duration of the FLIP,
+        // then restore once every spawned tween below has actually finished.
+        workItems.forEach((item) => {
+            item.style.transition = "none";
+        });
+
+        const EXIT_DUR = 0.15;
+        const STAY_DUR = 0.32;
+        const ENTER_DUR = 0.25;
+        const ENTER_BASE_DELAY = 0.05;
+        const ENTER_STAGGER = 0.04;
+        const enterTail = entering.length
+            ? ENTER_BASE_DELAY + (entering.length - 1) * ENTER_STAGGER + ENTER_DUR
+            : 0;
+        const totalDuration =
+            (EXIT_DUR + Math.max(STAY_DUR, enterTail)) * dur || 0.001;
+
         const tl = gsap.timeline({ onComplete: syncThumb });
 
         // Exiting items fade+scale down first (ease-out: leaving the screen)
         exiting.forEach((item) => {
             tl.to(
                 item,
-                { opacity: 0, scale: 0.96, duration: 0.15 * dur || 0.001, ease: "power2.out" },
+                { opacity: 0, scale: 0.96, duration: EXIT_DUR * dur || 0.001, ease: "power2.out" },
                 0,
             );
         });
@@ -705,7 +724,7 @@ const allTags = Array.from(
                         gsap.fromTo(
                             item,
                             { y: dy },
-                            { y: 0, duration: 0.32 * dur || 0.001, ease: "power2.inOut" },
+                            { y: 0, duration: STAY_DUR * dur || 0.001, ease: "power2.inOut" },
                         );
                     }
                 });
@@ -718,16 +737,22 @@ const allTags = Array.from(
                         {
                             opacity: 1,
                             scale: 1,
-                            duration: 0.25 * dur || 0.001,
-                            delay: (0.05 + i * 0.04) * dur,
+                            duration: ENTER_DUR * dur || 0.001,
+                            delay: (ENTER_BASE_DELAY + i * ENTER_STAGGER) * dur,
                             ease: "power3.out",
                         },
                     );
                 });
             },
             undefined,
-            0.15 * dur || 0.001,
+            EXIT_DUR * dur || 0.001,
         );
+
+        gsap.delayedCall(totalDuration, () => {
+            workItems.forEach((item) => {
+                item.style.transition = "";
+            });
+        });
     }
 
     filterBtns.forEach((btn) => {
