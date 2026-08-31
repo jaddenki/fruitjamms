@@ -1,9 +1,39 @@
 ---
-import { projects, TAG_COLORS, type ProjectTag } from "../data/projects";
+import { TAG_COLORS, type Project, type ProjectTag } from "../data/projects";
+import { getSiteSettings, urlFor } from "../utils/sanity";
+
+const site = await getSiteSettings();
+if (!site) throw new Error("Missing Sanity siteSettings singleton");
+
+const sanityProjects = site.projectOrder ?? [];
+const projects: Project[] = sanityProjects.map((project) => {
+    const slug = project.slug.current;
+    const external = project.linkType === "external" && Boolean(project.projectUrl);
+
+    return {
+        label: project.title,
+        href: external
+            ? project.projectUrl ?? undefined
+            : project.linkType === "detail"
+              ? `/projects/${slug}`
+              : undefined,
+        preview: project.previewImage
+            ? urlFor(project.previewImage).width(1200).height(676).fit("crop").auto("format").url()
+            : undefined,
+        video: project.previewVideoUrl ?? undefined,
+        tags: (project.categories ?? []) as ProjectTag[],
+        external,
+    };
+});
 
 const allTags = Array.from(
     new Set(projects.flatMap((p) => p.tags ?? [])),
 ) as ProjectTag[];
+
+const team = (site.teamOrder ?? []).map((member) => ({
+    ...member,
+    avatarUrl: urlFor(member.avatar).width(595).height(595).fit("crop").url(),
+}));
 ---
 
 <!-- Floating member preview -->
@@ -84,7 +114,7 @@ const allTags = Array.from(
     <div id="menu-panel" aria-hidden="true" role="dialog" aria-label="Menu">
         <div id="work-grid">
             <div id="tag-filter-row" role="group" aria-label="Filter work by type">
-                <button class="tag-filter-btn active" data-filter="all">all</button>
+                <button class="tag-filter-btn active" data-filter="all">{site.allFilterLabel}</button>
                 {allTags.map((tag) => (
                     <button class="tag-filter-btn" data-filter={tag}>
                         {tag}
@@ -134,52 +164,23 @@ const allTags = Array.from(
 
         <!-- Team panel -->
         <div id="team-panel">
-            <a
-                href="https://jadden.xyz"
-                class="team-row"
-                data-avatar="/img/jadden.svg"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                <span class="team-name">jadden</span>
-                <span class="team-role">co director</span>
-            </a>
-            <a
-                href="https://saahil.xyz"
-                class="team-row"
-                data-avatar="/img/saahil.svg"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                <span class="team-name">saahil</span>
-                <span class="team-role">co director</span>
-            </a>
-            <a
-                href="https://aliciazhou.xyz"
-                class="team-row"
-                data-avatar="/img/alicia.svg"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                <span class="team-name">alicia</span>
-                <span class="team-role">design engineer</span>
-            </a>
-            <a
-                href="https://x.com/RandomPossibly"
-                class="team-row"
-                data-avatar="/img/mason.svg"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                <span class="team-name">mason</span>
-                <span class="team-role">lead composer</span>
-            </a>
+            {team.map((member) => (
+                <a
+                    href={member.url}
+                    class="team-row"
+                    data-avatar={member.avatarUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    <span class="team-name">{member.name}</span>
+                    <span class="team-role">{member.role}</span>
+                </a>
+            ))}
             <p id="team-blurb">
-                jamms is a fast moving, close-knit team of passionate designers,
-                developers, and artists. we make things stick.
+                {site.teamBlurb}
             </p>
             <p id="team-contact-line">
-                for inquiries, contact <button id="team-contact" aria-label="Copy email address">fruit@jam.ms</button>
+                {site.contactPrefix} <button id="team-contact" aria-label="Copy email address">{site.contactEmail}</button>
             </p>
         </div>
     </div>
@@ -188,10 +189,10 @@ const allTags = Array.from(
     <nav id="side-tabs" aria-label="Sections" aria-hidden="true">
         <span class="tab-indicator" aria-hidden="true"></span>
         <button class="tab-btn active" data-tab="work" aria-pressed="true"
-            >work</button
+            >{site.workTabLabel}</button
         >
         <button class="tab-btn" data-tab="team" aria-pressed="false"
-            >about</button
+            >{site.aboutTabLabel}</button
         >
         {/* <button class="tab-btn" data-tab="about" aria-pressed="false">blog</button> */}
     </nav>

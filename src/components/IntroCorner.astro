@@ -1,14 +1,20 @@
 ---
+interface Props {
+    label: string;
+    url: string;
+}
+
+const { label, url } = Astro.props;
 ---
 
 <div id="intro-corner" aria-hidden="false">
     <a
         id="intro-cta"
-        href="https://cal.com/jadden/b"
+        href={url}
         target="_blank"
         rel="noopener noreferrer"
     >
-        book a call
+        {label}
     </a>
 </div>
 
