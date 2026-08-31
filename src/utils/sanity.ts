@@ -1,4 +1,4 @@
-import {sanityClient} from 'sanity:client'
+import {createClient} from '@sanity/client'
 import {createImageUrlBuilder} from '@sanity/image-url'
 import {defineQuery} from 'groq'
 
@@ -38,6 +38,13 @@ export const SITE_QUERY = defineQuery(`
     }
   }
 `)
+
+const sanityClient = createClient({
+  projectId: import.meta.env.PUBLIC_SANITY_PROJECT_ID,
+  dataset: import.meta.env.PUBLIC_SANITY_DATASET,
+  apiVersion: '2026-08-28',
+  useCdn: false,
+})
 
 const imageBuilder = createImageUrlBuilder(sanityClient)
 
