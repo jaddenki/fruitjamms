@@ -5,6 +5,11 @@ import GooPixels from "../components/GooPixels.astro";
 import IntroCorner from "../components/IntroCorner.astro";
 import NavPill from "../components/NavPill.astro";
 import FluidSim from "../components/FluidSim.astro";
+import { getSiteSettings, urlFor } from "../utils/sanity";
+
+const site = await getSiteSettings();
+if (!site) throw new Error("Missing Sanity siteSettings singleton");
+const socialImageUrl = urlFor(site.socialImage).width(1200).height(630).fit("crop").url();
 
 // Edit this grid to reshape the mascot.
 // Each row is a string of 10 chars: 'X' = filled, '.' = empty.
@@ -28,49 +33,49 @@ const mascotGrid = [
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <link rel="icon" type="image/png" href="/img/favicon.png" />
-        <title>jamms</title>
+        <title>{site.seoTitle}</title>
 
         <!-- SEO -->
         <meta
             name="description"
-            content="a product studio designing & shipping games, brand, and web work for those who want it to stick."
+            content={site.seoDescription}
         />
-        <link rel="canonical" href="https://jam.ms/" />
+        <link rel="canonical" href={site.canonicalUrl} />
         <meta name="robots" content="index, follow" />
-        <meta name="theme-color" content="#ff28a8" />
+        <meta name="theme-color" content={site.themeColor} />
 
         <!-- Open Graph / social preview -->
         <meta property="og:type" content="website" />
-        <meta property="og:site_name" content="jamms" />
-        <meta property="og:title" content="jamms" />
+        <meta property="og:site_name" content={site.siteName} />
+        <meta property="og:title" content={site.seoTitle} />
         <meta
             property="og:description"
-            content="a product studio designing & shipping games, brand, and web work for those who want it to stick."
+            content={site.seoDescription}
         />
-        <meta property="og:url" content="https://jam.ms/" />
-        <meta property="og:image" content="https://jam.ms/img/og.png" />
+        <meta property="og:url" content={site.canonicalUrl} />
+        <meta property="og:image" content={socialImageUrl} />
         <meta property="og:image:width" content="1200" />
         <meta property="og:image:height" content="630" />
-        <meta property="og:image:alt" content="jamms" />
+        <meta property="og:image:alt" content={site.socialImage.alt} />
 
         <!-- Twitter -->
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="jamms" />
+        <meta name="twitter:title" content={site.seoTitle} />
         <meta
             name="twitter:description"
-            content="a product studio designing & shipping games, brand, and web work for those who want it to stick."
+            content={site.seoDescription}
         />
-        <meta name="twitter:image" content="https://jam.ms/img/og.png" />
+        <meta name="twitter:image" content={socialImageUrl} />
 
         <!-- Structured data -->
         <script type="application/ld+json" is:inline set:html={JSON.stringify({
             "@context": "https://schema.org",
             "@type": "Organization",
-            name: "jamms",
-            url: "https://jam.ms/",
-            logo: "https://jam.ms/img/favicon.png",
-            description: "a product studio designing & shipping games, brand, and web work for those who want it to stick.",
-            email: "fruit@jam.ms",
+            name: site.siteName,
+            url: site.canonicalUrl,
+            logo: new URL("/img/favicon.png", site.canonicalUrl).href,
+            description: site.seoDescription,
+            email: site.contactEmail,
         })} />
         <script type="importmap" is:inline>
             { "imports": { "three": "https://esm.sh/three@0.170.0" } }
@@ -582,8 +587,8 @@ const mascotGrid = [
         <div id="stage" aria-hidden="true"></div>
         <GooPixels />
         <CrossScene mascotGrid={mascotGrid} />
-        <IntroCorner />
-        <AboutBlurb />
+        <IntroCorner label={site.bookingLabel} url={site.bookingUrl} />
+        <AboutBlurb text={site.aboutBlurb} />
         <NavPill />
         <FluidSim />
     </body>

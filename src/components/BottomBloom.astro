@@ -53,9 +53,14 @@ const dots: { left: string; bottom: string }[] = [
 
 // Colored flower accents — reuse the same "cross" ring shape as the corner
 // crosses, which reads as a 4-petal flower with a hollow center.
-const flowers: { left: string; bottom: string; color: string }[] = [
+const flowers: {
+    left: string;
+    bottom: string;
+    color: string;
+    hideOnMobile?: boolean;
+}[] = [
     { left: "15%", bottom: "88px", color: "#00C44E" },
-    { left: "88%", bottom: "88px", color: "#ff940f" },
+    { left: "88%", bottom: "88px", color: "#E8850A", hideOnMobile: true },
 ];
 ---
 
@@ -143,11 +148,11 @@ const flowers: { left: string; bottom: string; color: string }[] = [
     }
 
     {
-        flowers.map(({ left, bottom, color }) => {
+        flowers.map(({ left, bottom, color, hideOnMobile }) => {
             const dims = gridDimensions(SHAPE_GRIDS.cross);
             return (
                 <div
-                    class="bloom-wrap"
+                    class={`bloom-wrap${hideOnMobile ? " hide-on-mobile" : ""}`}
                     data-goo
                     style={`left:${left};bottom:${bottom};`}
                 >
@@ -190,5 +195,10 @@ const flowers: { left: string; bottom: string; color: string }[] = [
     }
     .bloom-wrap svg {
         overflow: visible;
+    }
+    @media (max-width: 640px) {
+        .hide-on-mobile {
+            display: none;
+        }
     }
 </style>

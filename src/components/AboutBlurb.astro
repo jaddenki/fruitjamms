@@ -1,9 +1,13 @@
 ---
+interface Props {
+    text: string;
+}
+
+const { text } = Astro.props;
 ---
 
 <p id="about-blurb" aria-hidden="false">
-    a product studio designing & shipping games, brand, and web work for
-    those who want it to stick.
+    {text}
 </p>
 
 <style>
