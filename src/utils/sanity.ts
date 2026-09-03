@@ -11,6 +11,7 @@ export const SITE_QUERY = defineQuery(`
     workTabLabel,
     aboutTabLabel,
     allFilterLabel,
+    workBlurb,
     teamBlurb,
     contactPrefix,
     contactEmail,

@@ -49,6 +49,7 @@ export type SiteSettings = {
   workTabLabel?: string;
   aboutTabLabel?: string;
   allFilterLabel?: string;
+  workBlurb?: string;
   projectOrder?: Array<
     {
       _key: string;
@@ -318,7 +319,7 @@ export type AllSanitySchemaTypes =
 
 // Source: ../fruitjamms/src/utils/sanity.ts
 // Variable: SITE_QUERY
-// Query: *[_type == "siteSettings" && _id == "siteSettings"][0] {    siteName,    aboutBlurb,    bookingLabel,    bookingUrl,    workTabLabel,    aboutTabLabel,    allFilterLabel,    teamBlurb,    contactPrefix,    contactEmail,    seoTitle,    seoDescription,    canonicalUrl,    themeColor,    socialImage,    projectOrder[]->{      _id,      title,      slug,      categories,      linkType,      projectUrl,      previewImage,      "previewVideoUrl": previewVideo.asset->url    },    teamOrder[]->{      _id,      name,      role,      url,      avatar    }  }
+// Query: *[_type == "siteSettings" && _id == "siteSettings"][0] {    siteName,    aboutBlurb,    bookingLabel,    bookingUrl,    workTabLabel,    aboutTabLabel,    allFilterLabel,    workBlurb,    teamBlurb,    contactPrefix,    contactEmail,    seoTitle,    seoDescription,    canonicalUrl,    themeColor,    socialImage,    projectOrder[]->{      _id,      title,      slug,      categories,      linkType,      projectUrl,      previewImage,      "previewVideoUrl": previewVideo.asset->url    },    teamOrder[]->{      _id,      name,      role,      url,      avatar    }  }
 export type SITE_QUERY_RESULT = {
   siteName: string | null;
   aboutBlurb: string | null;
@@ -327,6 +328,7 @@ export type SITE_QUERY_RESULT = {
   workTabLabel: string | null;
   aboutTabLabel: string | null;
   allFilterLabel: string | null;
+  workBlurb: string | null;
   teamBlurb: string | null;
   contactPrefix: string | null;
   contactEmail: string | null;
@@ -379,6 +381,6 @@ export type SITE_QUERY_RESULT = {
 import "@sanity/client";
 declare module "@sanity/client" {
   interface SanityQueries {
-    '\n  *[_type == "siteSettings" && _id == "siteSettings"][0] {\n    siteName,\n    aboutBlurb,\n    bookingLabel,\n    bookingUrl,\n    workTabLabel,\n    aboutTabLabel,\n    allFilterLabel,\n    teamBlurb,\n    contactPrefix,\n    contactEmail,\n    seoTitle,\n    seoDescription,\n    canonicalUrl,\n    themeColor,\n    socialImage,\n    projectOrder[]->{\n      _id,\n      title,\n      slug,\n      categories,\n      linkType,\n      projectUrl,\n      previewImage,\n      "previewVideoUrl": previewVideo.asset->url\n    },\n    teamOrder[]->{\n      _id,\n      name,\n      role,\n      url,\n      avatar\n    }\n  }\n': SITE_QUERY_RESULT;
+    '\n  *[_type == "siteSettings" && _id == "siteSettings"][0] {\n    siteName,\n    aboutBlurb,\n    bookingLabel,\n    bookingUrl,\n    workTabLabel,\n    aboutTabLabel,\n    allFilterLabel,\n    workBlurb,\n    teamBlurb,\n    contactPrefix,\n    contactEmail,\n    seoTitle,\n    seoDescription,\n    canonicalUrl,\n    themeColor,\n    socialImage,\n    projectOrder[]->{\n      _id,\n      title,\n      slug,\n      categories,\n      linkType,\n      projectUrl,\n      previewImage,\n      "previewVideoUrl": previewVideo.asset->url\n    },\n    teamOrder[]->{\n      _id,\n      name,\n      role,\n      url,\n      avatar\n    }\n  }\n': SITE_QUERY_RESULT;
   }
 }

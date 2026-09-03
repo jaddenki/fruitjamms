@@ -113,6 +113,9 @@ const team = (site.teamOrder ?? []).map((member) => ({
     <!-- Full menu panel (revealed after morph) -->
     <div id="menu-panel" aria-hidden="true" role="dialog" aria-label="Menu">
         <div id="work-grid">
+            <p id="work-blurb">
+                {site.workBlurb}
+            </p>
             <div id="tag-filter-row" role="group" aria-label="Filter work by type">
                 <button class="tag-filter-btn active" data-filter="all">{site.allFilterLabel}</button>
                 {allTags.map((tag) => (
@@ -448,6 +451,8 @@ const team = (site.teamOrder ?? []).map((member) => ({
             return Array.from(team.children) as HTMLElement[];
         }
         const targets: HTMLElement[] = [];
+        const workBlurb = document.getElementById("work-blurb");
+        if (workBlurb) targets.push(workBlurb);
         const filterRow = document.getElementById("tag-filter-row");
         if (filterRow) targets.push(filterRow);
         document
@@ -606,22 +611,22 @@ const team = (site.teamOrder ?? []).map((member) => ({
     // that collapses the panel back down.
     pillIcon.addEventListener("click", (e) => {
         e.stopPropagation();
-        // clearTimeout(autoOpenTimer);
+        clearTimeout(autoOpenTimer);
         if (isOpen) closeMenu();
         else openMenu();
     });
 
     /* ── Auto-open once, after a delay, if the visitor hasn't touched it ── */
-    // const AUTO_OPEN_DELAY = 1000;
-    // const autoOpenTimer = setTimeout(() => {
-    //     if (!isOpen) openMenu();
-    // }, AUTO_OPEN_DELAY);
-    // pill.addEventListener("click", () => clearTimeout(autoOpenTimer), {
-    //     once: true,
-    // });
-    // document.addEventListener("keydown", (e) => {
-    //     if (e.key === "Escape" && isOpen) closeMenu();
-    // });
+    const AUTO_OPEN_DELAY = 1000;
+    const autoOpenTimer = setTimeout(() => {
+        if (!isOpen) openMenu();
+    }, AUTO_OPEN_DELAY);
+    pill.addEventListener("click", () => clearTimeout(autoOpenTimer), {
+        once: true,
+    });
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && isOpen) closeMenu();
+    });
 
     window.addEventListener("resize", () => {
         if (!isOpen) return;
