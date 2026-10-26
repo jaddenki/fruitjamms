@@ -54,7 +54,7 @@ const crosses = [
         id="mascot"
         class="cross-wrap"
         data-goo
-        style={`left:40px;bottom:40px;`}
+        style="left:calc(50% - 110px);top:calc(50% - 350px);visibility:hidden;"
     >
         <svg
             width={mascotDims.w}
@@ -70,3 +70,65 @@ const crosses = [
 
     <BottomBloom />
 </div>
+
+<script>
+    import { gsap } from "gsap";
+
+    const stage = document.querySelector<HTMLElement>("#stage")!;
+    const scene = document.querySelector<HTMLElement>("#scene")!;
+    const palette = ["#ff940f", "#BDED00", "#2535E8", "#00C44E", "#F020A0", "#FF28A8", "#28E0C8"];
+    const spawned: HTMLElement[] = [];
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const mascot = document.querySelector<HTMLElement>("#mascot")!;
+    const copy = document.querySelector<HTMLElement>("#studio-intro .copy")!;
+    const positionMascot = () => {
+        const bounds = scene.getBoundingClientRect();
+        const text = copy.getBoundingClientRect();
+        const size = window.innerWidth <= 480 ? 144 : 220;
+        const svg = mascot.querySelector("svg")!;
+        svg.setAttribute("width", String(size));
+        svg.setAttribute("height", String(size));
+        mascot.style.left = `${(bounds.width - size) / 2}px`;
+        mascot.style.top = `${Math.max(20, text.top - bounds.top - size - 64)}px`;
+        mascot.style.visibility = "visible";
+    };
+    positionMascot();
+    new ResizeObserver(positionMascot).observe(copy);
+    window.addEventListener("resize", positionMascot);
+    document.fonts.ready.then(positionMascot);
+
+    stage.addEventListener("click", (event) => {
+        if (window.__gooDidDrag?.() || !window.__gooSpawnHtml) return;
+        const keys = window.__gooShapeKeys ?? ["cross", "plus", "diamond"];
+        const shape = keys[Math.floor(Math.random() * keys.length)];
+        const color = palette[Math.floor(Math.random() * palette.length)];
+        const wrap = document.createElement("div");
+        wrap.className = "cross-wrap spawned";
+        wrap.dataset.goo = "";
+        wrap.innerHTML = window.__gooSpawnHtml(color, shape);
+        const svg = wrap.querySelector("svg")!;
+        const bounds = scene.getBoundingClientRect();
+        wrap.style.left = `${event.clientX - bounds.left - Number(svg.getAttribute("width")) / 2}px`;
+        wrap.style.top = `${event.clientY - bounds.top - Number(svg.getAttribute("height")) / 2}px`;
+        scene.appendChild(wrap);
+        window.__gooRegister?.(wrap);
+        spawned.push(wrap);
+
+        gsap.fromTo(svg,
+            { opacity: 0, scale: reducedMotion.matches ? 1 : 0.9, transformOrigin: "50% 50%" },
+            { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" },
+        );
+
+        if (spawned.length > 40) {
+            const oldest = spawned.shift()!;
+            gsap.to(oldest, {
+                opacity: 0,
+                duration: 0.2,
+                onComplete: () => {
+                    window.__gooUnregister?.(oldest);
+                    oldest.remove();
+                },
+            });
+        }
+    });
+</script>

@@ -1,37 +1,197 @@
 ---
-interface Props {
-    text: string;
-}
-
-const { text } = Astro.props;
+const team = [
+    { name: "jadden", url: "https://jadden.xyz", color: "#2455e6" },
+    { name: "alicia", url: "https://aliciazhou.xyz", color: "#c00075" },
+    { name: "mason", url: "https://x.com/RandomPossibly", color: "#16803c" },
+    { name: "saahil", url: "https://saahil.xyz", color: "#8438cc" },
+];
 ---
 
-<p id="about-blurb" aria-hidden="false">
-    {text}
-</p>
+<main id="studio-intro">
+    <div class="copy">
+        <p>
+            jamms is a product studio focused on making <span class="inline-popover"><button type="button" aria-expanded="false" aria-controls="work-tooltip" aria-describedby="work-tooltip">things that stick</button><span id="work-tooltip" class="popover-panel" role="tooltip" inert><span class="team-goo" aria-hidden="true"></span><span class="degree-copy">websites, brands, videos, games</span></span></span>.
+            <br />
+            <span class="team inline-popover"><button type="button" aria-expanded="false" aria-controls="team-links">we</button><span id="team-links" class="popover-panel" aria-label="Our team" inert><span class="team-goo" aria-hidden="true"></span><span class="team-names">{team.map((member, index) => <><a href={member.url} style={`--member-color: ${member.color}`} target="_blank" rel="noopener noreferrer">{member.name}</a>{index < team.length - 1 && ", "}</>)}</span></span></span>
+            come from <span class="degrees inline-popover"><button type="button" aria-expanded="false" aria-controls="degree-tooltip" aria-describedby="degree-tooltip">technical degrees</button><span id="degree-tooltip" class="popover-panel" role="tooltip" inert><span class="team-goo" aria-hidden="true"></span><span class="degree-copy">cs and engineering</span></span></span> alongside plentiful freelance work.
+        </p>
+        <p class="contact">reach us at <span class="inline-popover" data-copy-email="fruit@jam.ms"><button type="button" aria-label="Copy email address: fruit@jam.ms" aria-expanded="false" aria-controls="email-tooltip">fruit [at] jam [dot] ms</button><span id="email-tooltip" class="popover-panel" inert><span class="team-goo" aria-hidden="true"></span><span class="degree-copy">email copied!</span></span></span><span class="copy-status" role="status"></span></p>
+    </div>
+</main>
 
 <style>
-    #about-blurb {
+    #studio-intro {
         position: fixed;
-        top: calc(var(--frame) + 26px);
-        right: calc(var(--frame) + 28px);
+        inset: var(--frame);
         z-index: 10;
-        max-width: 260px;
-        text-align: right;
-        text-wrap: balance;
-        font-family: "Authentic Sans", sans-serif;
-        font-size: 14px;
-        line-height: 1.4;
-        letter-spacing: -0.05em;
+        display: grid;
+        place-items: center;
+        padding: 28px;
         color: #ffffff;
-        mix-blend-mode: difference;
+        font-size: clamp(14px, 1.5vw, 18px);
+        line-height: 1.35;
+        letter-spacing: -0.04em;
         pointer-events: none;
     }
-
+    .copy { width: min(100%, 540px); pointer-events: auto; }
+    .copy > p { text-wrap: pretty; }
+    .contact { margin-top: 1.5em; }
+    a { color: inherit; text-decoration: none; }
+    .copy-status { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .inline-popover { position: relative; display: inline-block; }
+    button {
+        font: inherit;
+        letter-spacing: inherit;
+        color: inherit;
+        background: none;
+        border: 0;
+        padding: 0;
+        text-decoration: underline;
+        text-underline-offset: 0.15em;
+        cursor: pointer;
+    }
+    .popover-panel {
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(calc(-50% + var(--popover-shift, 0px)));
+        max-width: calc(100vw - 48px);
+        padding: 0 0 10px;
+        visibility: hidden;
+        width: 140px;
+        font-size: 16px;
+        line-height: 1.4;
+        letter-spacing: -0.03em;
+        isolation: isolate;
+        pointer-events: none;
+        transition: visibility 0s linear 260ms;
+    }
+    .team-goo {
+        position: absolute;
+        inset: 0 0 10px;
+        z-index: -1;
+        filter: url(#gooey);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 100ms ease-out 160ms;
+    }
+    .team-goo::before, .team-goo::after {
+        content: "";
+        position: absolute;
+        background: #ffffff;
+    }
+    .team-goo::before {
+        inset: 0;
+        border-radius: 14px;
+        transform: translateY(12px) scale(0.35, 0.08);
+        transform-origin: var(--popover-arrow, 50%) bottom;
+        transition: transform 240ms cubic-bezier(0.65, 0, 0.35, 1);
+    }
+    .team-goo::after {
+        width: 22px;
+        height: 22px;
+        bottom: -8px;
+        left: calc(var(--popover-arrow, 50%) - 11px);
+        border-radius: 50%;
+    }
+    .inline-popover.is-open .popover-panel { visibility: visible; pointer-events: auto; transition-delay: 0s; }
+    .inline-popover.is-open .team-goo { opacity: 1; transition-delay: 0s; }
+    .inline-popover.is-open .team-goo::before {
+        transform: translateY(0) scale(1);
+        transition: transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    #team-links, #degree-tooltip, #work-tooltip, #email-tooltip { width: max-content; }
+    .team-names { display: block; padding: 7px 16px; color: #050005; }
+    #team-links a { display: inline; padding: 0; }
+    #team-links a, .degree-copy {
+        color: #050005;
+        opacity: 0;
+        transform: translateY(6px);
+        transition: opacity 120ms ease-out, transform 180ms ease-out;
+    }
+    .degree-copy { display: block; padding: 7px 16px; }
+    .inline-popover.is-open #team-links a, .inline-popover.is-open .degree-copy { opacity: 1; transform: translateY(0); transition-delay: 90ms; }
+    #team-links a:hover, #team-links a:focus-visible { color: var(--member-color); text-decoration: underline; }
+    button:focus-visible, a:focus-visible { outline: 2px solid #ff28a8; outline-offset: 4px; }
     @media (max-width: 480px) {
-        #about-blurb {
-            max-width: 180px;
-            font-size: 12px;
-        }
+        #studio-intro { padding: 24px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .popover-panel, .team-goo { transition: none; }
+        .team-goo::before, .inline-popover.is-open .team-goo::before, #team-links a, .degree-copy { transition: none; transform: none; }
     }
 </style>
+
+<script>
+    document.querySelectorAll<HTMLElement>(".inline-popover").forEach((team) => {
+        const trigger = team.querySelector("button")!;
+        const links = team.querySelector<HTMLElement>(".popover-panel")!;
+        const email = team.dataset.copyEmail;
+        let closeTimer: ReturnType<typeof setTimeout>;
+        const positionPopover = () => {
+            const frame = document.querySelector<HTMLElement>("#studio-intro")!.getBoundingClientRect();
+            const left = Math.max(0, frame.left) + 12;
+            const right = Math.min(window.innerWidth, frame.right) - 12;
+            links.style.maxWidth = `${Math.max(0, right - left)}px`;
+            links.style.setProperty("--popover-shift", "0px");
+            const panel = links.getBoundingClientRect();
+            const shift = Math.max(left, Math.min(panel.left, right - panel.width)) - panel.left;
+            links.style.setProperty("--popover-shift", `${shift}px`);
+            const triggerBounds = trigger.getBoundingClientRect();
+            const arrow = (triggerBounds.left + triggerBounds.right) / 2 - panel.left - shift;
+            links.style.setProperty("--popover-arrow", `${Math.max(20, Math.min(panel.width - 20, arrow))}px`);
+        };
+        const setOpen = (open: boolean) => {
+            clearTimeout(closeTimer);
+            if (open) positionPopover();
+            team.classList.toggle("is-open", open);
+            trigger.setAttribute("aria-expanded", String(open));
+            links.inert = !open;
+        };
+        window.addEventListener("resize", () => {
+            if (team.classList.contains("is-open")) positionPopover();
+        });
+        document.fonts.ready.then(() => {
+            if (team.classList.contains("is-open")) positionPopover();
+        });
+        team.addEventListener("pointerenter", (event) => {
+            if (!email && event.pointerType === "mouse") setOpen(true);
+        });
+        team.addEventListener("pointerleave", () => {
+            if (!team.contains(document.activeElement)) setOpen(false);
+        });
+        trigger.addEventListener("click", async () => {
+            if (!email) {
+                setOpen(true);
+                return;
+            }
+            const status = document.querySelector<HTMLElement>(".copy-status")!;
+            status.textContent = "";
+            let message = "email copied!";
+            try {
+                await navigator.clipboard.writeText(email);
+            } catch {
+                message = "couldn’t copy — try again";
+            }
+            links.querySelector<HTMLElement>(".degree-copy")!.textContent = message;
+            status.textContent = message;
+            setOpen(true);
+            closeTimer = setTimeout(() => setOpen(false), 2500);
+        });
+        team.addEventListener("focusin", () => {
+            if (!email) setOpen(true);
+        });
+        team.addEventListener("focusout", (event) => {
+            if (!team.contains(event.relatedTarget as Node)) setOpen(false);
+        });
+        document.addEventListener("pointerdown", (event) => {
+            if (!team.contains(event.target as Node)) setOpen(false);
+        });
+        document.addEventListener("keydown", (event) => {
+            if (event.key === "Escape" && team.classList.contains("is-open")) {
+                if (links.contains(document.activeElement)) trigger.focus();
+                setOpen(false);
+            }
+        });
+    });
+</script>

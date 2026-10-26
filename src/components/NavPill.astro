@@ -1161,9 +1161,4 @@ const team = (site.teamOrder ?? []).map((member) => ({
         }
     });
 
-    stage.addEventListener("click", (e) => {
-        if (window.__gooDidDrag?.()) return;
-        const rect = scene.getBoundingClientRect();
-        spawnPixel(e.clientX - rect.left, e.clientY - rect.top);
-    });
 </script>

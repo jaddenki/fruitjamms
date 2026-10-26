@@ -14,15 +14,12 @@ const socialImageUrl = urlFor(site.socialImage).width(1200).height(630).fit("cro
 // Edit this grid to reshape the mascot.
 // Each row is a string of 10 chars: 'X' = filled, '.' = empty.
 const mascotGrid = [
-    ".X..X.....", // row 0  antennae
-    ".XXXX.....", // row 1  head
-    "X....X....", // row 2  full
-    "X....X....", // row 3  body (window sides)
-    ".XXXX.....", // row 4  body (window sides)
-    "X....X....", // row 5  body (window sides)
-    "..........", // row 6  lower body
-    "..........", // row 7  base
-    "..........", // row 8  feet
+    ".X..X.",
+    ".XXXX.",
+    "X....X",
+    "X....X",
+    ".XXXX.",
+    "X....X",
 ];
 
 ---
@@ -587,9 +584,9 @@ const mascotGrid = [
         <div id="stage" aria-hidden="true"></div>
         <GooPixels />
         <CrossScene mascotGrid={mascotGrid} />
-        <IntroCorner label={site.bookingLabel} url={site.bookingUrl} />
-        <AboutBlurb text={site.aboutBlurb} />
-        <NavPill />
+        {/* <IntroCorner label={site.bookingLabel} url={site.bookingUrl} /> */}
+        <AboutBlurb />
+        {/* <NavPill /> */}
         <FluidSim />
     </body>
 </html>

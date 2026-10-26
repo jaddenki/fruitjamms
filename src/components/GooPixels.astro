@@ -240,10 +240,13 @@
         if (reducedMotion) return;
 
         const grabbed = new Set(grab?.entries.map((e) => e.px) ?? []);
+        const text = document.querySelector("#studio-intro .copy")?.getBoundingClientRect();
+        const matrices = new Map(clusters.map((cluster) => [cluster, cluster.svg.getScreenCTM()]));
 
         for (const cluster of clusters) {
             const isAnchored = cluster.wrap.hasAttribute("data-no-float");
             const bloomPhase = parseFloat(cluster.wrap.dataset.bloomPhase ?? "0");
+            const matrix = matrices.get(cluster);
             const grabCenters = grab?.cluster === cluster
                 ? grab.entries.map((e) => pixelCenter(e.px))
                 : [];
@@ -279,8 +282,34 @@
 
                 const spring = isAnchored ? ANCHOR_SPRING : SPRING;
                 const damp = isAnchored ? ANCHOR_DAMP : DAMP;
-                px.vx += -px.ox * spring;
-                px.vy += -px.oy * spring;
+                let targetX = 0;
+                let targetY = 0;
+                if (text && matrix && cluster.wrap.id !== "mascot") {
+                    const scaleX = Math.hypot(matrix.a, matrix.b);
+                    const scaleY = Math.hypot(matrix.c, matrix.d);
+                    const center = new DOMPoint(px.hx + px.cell / 2, px.hy + px.cell / 2).matrixTransform(matrix);
+                    const padding = 24;
+                    const left = text.left - padding - px.cell * scaleX / 2;
+                    const right = text.right + padding + px.cell * scaleX / 2;
+                    const top = text.top - padding - px.cell * scaleY / 2;
+                    const bottom = text.bottom + padding + px.cell * scaleY / 2;
+                    if (center.x > left && center.x < right && center.y > top && center.y < bottom) {
+                        const exits = [
+                            { x: left - center.x, y: 0 },
+                            { x: right - center.x, y: 0 },
+                            { x: 0, y: top - center.y },
+                            { x: 0, y: bottom - center.y },
+                        ];
+                        const exit = exits.reduce((nearest, candidate) =>
+                            Math.hypot(candidate.x, candidate.y) < Math.hypot(nearest.x, nearest.y) ? candidate : nearest,
+                        );
+                        const inverse = matrix.inverse();
+                        targetX = inverse.a * exit.x + inverse.c * exit.y;
+                        targetY = inverse.b * exit.x + inverse.d * exit.y;
+                    }
+                }
+                px.vx += (targetX - px.ox) * spring;
+                px.vy += (targetY - px.oy) * spring;
                 px.vx *= damp;
                 px.vy *= damp;
                 px.ox += px.vx * dt * 60;

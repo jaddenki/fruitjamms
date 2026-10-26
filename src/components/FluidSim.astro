@@ -592,6 +592,7 @@
         physicsT += dt;
         const scene = getSceneDims();
         const menuObs = getMenuObstacle(scene);
+        const textBounds = document.querySelector("#studio-intro .copy")?.getBoundingClientRect();
         let menuRiseVy = 0;
         if (menuObs && prevMenuTop !== null) {
             menuRiseVy = (menuObs.top - prevMenuTop) / Math.max(dt, 0.001);
@@ -651,6 +652,25 @@
             if (penT > 0) b.vy += penT * WALL_SPRING * dt;
             if (penB > 0) b.vy -= penB * WALL_SPRING * dt;
             if (menuObs) applyMenuForces(b, mx, my, menuObs, dt, menuRiseVy);
+            if (textBounds) {
+                const padding = Math.hypot(mx, my) + 32;
+                const left = textBounds.left - scene.left - padding;
+                const right = textBounds.right - scene.left + padding;
+                const top = textBounds.top - scene.top - padding;
+                const bottom = textBounds.bottom - scene.top + padding;
+                const reach = 100;
+                if (b.x > left - reach && b.x < right + reach && b.y > top - reach && b.y < bottom + reach) {
+                    const exits = [
+                        { x: left - reach - b.x, y: 0 }, { x: right + reach - b.x, y: 0 },
+                        { x: 0, y: top - reach - b.y }, { x: 0, y: bottom + reach - b.y },
+                    ];
+                    const exit = exits.reduce((a, c) => Math.hypot(c.x, c.y) < Math.hypot(a.x, a.y) ? c : a);
+                    const distance = Math.hypot(exit.x, exit.y);
+                    const force = Math.min(distance / reach, 2) ** 2 * 1800;
+                    if (exit.x) b.vx += Math.sign(exit.x) * force * dt;
+                    if (exit.y) b.vy += Math.sign(exit.y) * force * dt;
+                }
+            }
 
             b.vx *= DRAG;
             b.vy *= DRAG;
@@ -675,6 +695,24 @@
             const my = b.h * 0.5;
             resolveSceneWalls(b, mx, my, scene);
             if (menuObs) softenMenuOverlap(b, mx, my, menuObs, dt);
+            if (textBounds) {
+                const padding = Math.hypot(mx, my) + 32;
+                const left = textBounds.left - scene.left - padding;
+                const right = textBounds.right - scene.left + padding;
+                const top = textBounds.top - scene.top - padding;
+                const bottom = textBounds.bottom - scene.top + padding;
+                if (b.x > left && b.x < right && b.y > top && b.y < bottom) {
+                    const exits = [
+                        { x: left - b.x, y: 0 }, { x: right - b.x, y: 0 },
+                        { x: 0, y: top - b.y }, { x: 0, y: bottom - b.y },
+                    ];
+                    const exit = exits.reduce((a, c) => Math.hypot(c.x, c.y) < Math.hypot(a.x, a.y) ? c : a);
+                    b.x += exit.x;
+                    b.y += exit.y;
+                    if (exit.x) b.vx = Math.sign(exit.x) * Math.max(110, Math.abs(b.vx) * 0.65);
+                    if (exit.y) b.vy = Math.sign(exit.y) * Math.max(110, Math.abs(b.vy) * 0.65);
+                }
+            }
 
             if (Math.abs(b.vx) < WALL_VEL_MIN) b.vx = 0;
             if (Math.abs(b.vy) < WALL_VEL_MIN) b.vy = 0;
