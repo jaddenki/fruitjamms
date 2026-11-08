@@ -10,7 +10,7 @@ const team = [
 <main id="studio-intro">
     <div class="copy">
         <p>
-            jamms is a product studio focused on making <span class="inline-popover"><button type="button" aria-expanded="false" aria-controls="work-tooltip" aria-describedby="work-tooltip">things that stick</button><span id="work-tooltip" class="popover-panel" role="tooltip" inert><span class="team-goo" aria-hidden="true"></span><span class="degree-copy">websites, brands, videos, games</span></span></span>.
+            jamms is a product studio focused on making <span class="inline-popover"><button type="button" aria-expanded="false" aria-controls="work-tooltip" aria-describedby="work-tooltip">things that stick</button><span id="work-tooltip" class="popover-panel" role="tooltip" inert><span class="team-goo" aria-hidden="true"></span><span class="degree-copy">websites, brands, videos, <a href="https://play.jam.ms/" target="_blank" rel="noopener noreferrer">games</a></span></span></span>.
             <br />
             <span class="team inline-popover"><button type="button" aria-expanded="false" aria-controls="team-links">we</button><span id="team-links" class="popover-panel" aria-label="Our team" inert><span class="team-goo" aria-hidden="true"></span><span class="team-names">{team.map((member, index) => <><a href={member.url} style={`--member-color: ${member.color}`} target="_blank" rel="noopener noreferrer">{member.name}</a>{index < team.length - 1 && ", "}</>)}</span></span></span>
             come from <span class="degrees inline-popover"><button type="button" aria-expanded="false" aria-controls="degree-tooltip" aria-describedby="degree-tooltip">technical degrees</button><span id="degree-tooltip" class="popover-panel" role="tooltip" inert><span class="team-goo" aria-hidden="true"></span><span class="degree-copy">cs and engineering</span></span></span> alongside plentiful freelance work.
@@ -111,6 +111,8 @@ const team = [
     }
     .degree-copy { display: block; padding: 7px 16px; }
     .inline-popover.is-open #team-links a, .inline-popover.is-open .degree-copy { opacity: 1; transform: translateY(0); transition-delay: 90ms; }
+    .degree-copy a { color: inherit; text-decoration: underline; text-underline-offset: 0.15em; }
+    .degree-copy a:hover, .degree-copy a:focus-visible { color: #ff28a8; }
     #team-links a:hover, #team-links a:focus-visible { color: var(--member-color); text-decoration: underline; }
     button:focus-visible, a:focus-visible { outline: 2px solid #ff28a8; outline-offset: 4px; }
     @media (max-width: 480px) {
